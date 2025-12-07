@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>MappingCrimeFrance - Carte & déclaration citoyenne</title>
+
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+</head>
+<body>
+  <div class="app">
+
+    <!-- BARRE DU HAUT -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo-block">
+          <div class="logo-square">MC</div>
+          <div>
+            <div class="site-title">MAPPINGCRIME France</div>
+            <div class="site-subtitle">Contribuer à une communauté plus sûre</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="search-bar">
+          <input type="text" placeholder="Rechercher une ville, une adresse..." />
+          <button>ALLER</button>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+  <button class="btn-register">S'inscrire</button>
+  <button class="btn-alerts">Recevoir des alertes</button>
+  <div class="period-box">
+    <span class="period-label">Période :</span>
+    <span class="period-value">7 derniers jours</span>
+  </div>
+</div>
+
+    </header>
+
+    <!-- CONTENU PRINCIPAL -->
+    <div class="main-layout">
+      <!-- COLONNE GAUCHE -->
+      <aside class="sidebar">
+       
+        <!-- FORMULAIRE DANS LA COLONNE GAUCHE -->
+        <div class="report-panel" id="report-panel">
+          <div class="panel-header">
+            <h2>Déclaration citoyenne</h2>
+            <button class="panel-close" id="btn-close-report">×</button>
+          </div>
+
+          <p class="warning">
+            Cette plateforme ne remplace pas un dépôt de plainte auprès de la police ou de la gendarmerie.
+            En cas d'urgence, appelez le 17 / 15 / 18 / 112.
+          </p>
+
+          <form id="crime-form">
+            <label>Type de fait</label>
+<select id="crime_type" required>
+  <option value="">-- Sélectionner --</option>
+  <option>Vol</option>
+  <option>Cambriolage</option>
+  <option>Agression</option>
+  <option>Agression sexuelle</option>
+  <option>Viol</option>
+  <option>Meurtre</option>
+  <option>Carjacking</option>
+  <option>Trafic de stupéfiants</option>
+  <option>Dégradations</option>
+  <option>Autre</option>
+</select>
+
+
+            <label>Date et heure (approximatives)</label>
+            <input type="datetime-local" id="date_time" required />
+
+            <label>Adresse (préremplie par la carte, modifiable)</label>
+            <input type="text" id="address" required />
+
+            <label>Code postal</label>
+            <input type="text" id="postcode" required />
+
+            <label>Ville</label>
+            <input type="text" id="city" required />
+
+            <label>Description (sans noms/prénoms, ni infos permettant d’identifier quelqu’un)</label>
+            <textarea id="description" rows="4"></textarea>
+
+            <!-- coordonnées validées -->
+            <input type="hidden" id="lat" />
+            <input type="hidden" id="lng" />
+
+            <!-- bouton pour supprimer le point -->
+            <button type="button" id="clear-point-btn" class="btn-secondary">
+              Supprimer le point
+            </button>
+
+            <label>Photos / vidéos (optionnel)</label>
+            <input
+              type="file"
+              id="media"
+              name="files"
+              multiple
+              accept="image/*,video/*"
+            />
+
+            <button type="submit" class="btn-submit">Envoyer ma déclaration</button>
+          </form>
+
+          <div id="result"></div>
+        </div>
+      </aside>
+
+      <!-- CARTE À DROITE -->
+      <section class="map-layout">
+        <div id="map"></div>
+      </section>
+    </div>
+  </div>
+
+<!-- MODALE INSCRIPTION -->
+<div class="register-modal" id="register-modal">
+  <div class="alert-modal-content">
+    <h2>Inscription</h2>
+    <p class="small-info">
+      Merci de renseigner vos informations pour créer un compte.
+    </p>
+
+    <form id="register-form">
+      <label>Prénom</label>
+      <input type="text" id="reg-first-name" required />
+
+      <label>Nom</label>
+      <input type="text" id="reg-last-name" required />
+
+      <label>Âge</label>
+      <input type="number" id="reg-age" min="10" max="120" />
+
+      <label>Email</label>
+      <input type="email" id="reg-email" required />
+
+      <label>Mot de passe</label>
+      <input type="password" id="reg-password" required />
+
+      <label>Adresse</label>
+      <input type="text" id="reg-address" />
+
+      <label>Code postal</label>
+      <input type="text" id="reg-postcode" />
+
+      <label>Ville</label>
+      <input type="text" id="reg-city" />
+
+      <div class="alert-modal-actions">
+        <button type="button" id="register-cancel">Annuler</button>
+        <button type="submit" class="btn-submit">Créer mon compte</button>
+      </div>
+    </form>
+
+    <div id="register-result"></div>
+  </div>
+</div>
+
+
+  <!-- MODALE ABONNEMENT ALERTES -->
+  <div class="alert-modal" id="alert-modal">
+    <div class="alert-modal-content">
+      <h2>Recevoir des alertes de proximité</h2>
+      <p class="small-info">
+        Cliquez d'abord sur la carte (deux clics pour valider un point) pour indiquer votre zone,
+        puis renseignez votre email et le rayon souhaité.
+      </p>
+
+      <form id="alert-form">
+        <label>Email</label>
+        <input type="email" id="alert-email" required />
+
+        <label>Rayon autour du point sélectionné (km)</label>
+        <input type="number" id="alert-radius" min="1" max="50" value="5" required />
+
+        <label>Types de faits concernés</label>
+        <div class="alert-crime-types">
+  <label><input type="checkbox" value="Vol" checked /> Vol</label>
+  <label><input type="checkbox" value="Cambriolage" checked /> Cambriolage</label>
+  <label><input type="checkbox" value="Agression" checked /> Agression</label>
+  <label><input type="checkbox" value="Agression sexuelle" /> Agression sexuelle</label>
+  <label><input type="checkbox" value="Viol" /> Viol</label>
+  <label><input type="checkbox" value="Meurtre" /> Meurtre</label>
+  <label><input type="checkbox" value="Carjacking" /> Carjacking</label>
+  <label><input type="checkbox" value="Trafic de stupéfiants" /> Trafic de stupéfiants</label>
+  <label><input type="checkbox" value="Dégradations" /> Dégradations</label>
+</div>
+
+
+        <p class="small-info">
+          Votre email ne sera utilisé que pour vous envoyer des alertes liées à votre zone.
+        </p>
+
+        <div class="alert-modal-actions">
+          <button type="button" id="alert-cancel">Annuler</button>
+          <button type="submit" class="btn-submit">Valider l'abonnement</button>
+        </div>
+      </form>
+
+      <div id="alert-result"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/report.js"></script>
+</body>
+</html>

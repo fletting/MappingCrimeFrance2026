@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Déclaration citoyenne - MappingCrimeFrance</title>
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+</head>
+<body>
+  <h1>Déclaration citoyenne d'un fait</h1>
+
+  <p class="warning">
+    Cette plateforme ne remplace pas un dépôt de plainte auprès de la police ou de la gendarmerie.
+    En cas d'urgence, appelez le 17 / 15 / 18 / 112.
+  </p>
+
+  <div id="map" style="height: 400px; margin-bottom: 20px;"></div>
+
+  <form id="crime-form">
+    <label>Type de fait</label>
+    <select id="crime_type" required>
+      <option value="">-- Sélectionner --</option>
+      <option>Vol</option>
+      <option>Cambriolage</option>
+      <option>Agression</option>
+      <option>Agression sexuelle</option>
+      <option>Viol</option>
+      <option>Dégradations</option>
+      <option>Autre</option>
+    </select>
+
+    <label>Date et heure (approximatives)</label>
+    <input type="datetime-local" id="date_time" required />
+
+    <label>Adresse (préremplie par la carte, modifiable)</label>
+    <input type="text" id="address" required />
+
+    <label>Code postal</label>
+    <input type="text" id="postcode" required />
+
+    <label>Ville</label>
+    <input type="text" id="city" required />
+
+    <label>Description (sans noms/prénoms, ni infos permettant d’identifier quelqu’un)</label>
+    <textarea id="description" rows="5"></textarea>
+
+    <input type="hidden" id="lat" />
+    <input type="hidden" id="lng" />
+
+    <button type="submit">Envoyer ma déclaration</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/report.js"></script>
+</body>
+</html>
