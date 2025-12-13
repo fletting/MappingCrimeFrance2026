@@ -2,7 +2,8 @@
 //  CONFIG GÉNÉRALE
 // ==============================
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://mappingcrime-api.onrender.com";
+
 
 // Dernier point VALIDÉ (2e clic) => utilisé pour la déclaration + alertes
 let lastClickedLat = null;
