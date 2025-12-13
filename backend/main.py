@@ -6,6 +6,15 @@ from typing import List
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost:8000",
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    # ton site Netlify en prod :
+    "https://thunderous-hamster-452ee6.netlify.app",
+]
+
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, SessionLocal
