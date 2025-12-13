@@ -1,698 +1,471 @@
-// ==============================
-//  CONFIG GÉNÉRALE
-// ==============================
+// -----------------------------
+// CONFIGURATION GÉNÉRALE
+// -----------------------------
 
-const API_BASE = "https://mappingcrime-api.onrender.com";
+// URL de base de l'API FastAPI sur Render
+const API_BASE_URL = "https://mappingcrime-api.onrender.com";
 
+// Centre et zoom de départ (France)
+const INITIAL_CENTER = [46.8, 2.5];
+const INITIAL_ZOOM = 6;
 
-// Dernier point VALIDÉ (2e clic) => utilisé pour la déclaration + alertes
-let lastClickedLat = null;
-let lastClickedLng = null;
+// -----------------------------
+// ÉTAT GLOBAL
+// -----------------------------
 
-// Couche Leaflet pour afficher tous les crimes
-let reportMarkersLayer = null;
+let map;                       // Instance Leaflet
+let currentMarker = null;      // Marqueur de la déclaration en cours
+let reportsLayer = null;       // LayerGroup pour tous les autres rapports
+let iconsByCrimeType = {};     // Dictionnaire "type de fait" -> icône Leaflet
 
-// Marqueur temporaire pour la sélection en cours
-let currentClickMarker = null;
+// -----------------------------
+// UTILITAIRES
+// -----------------------------
 
-// Étape de clic : 0 = aucun, 1 = premier clic posé
-let clickStage = 0;
+/**
+ * Affiche un message d'information / erreur pour l'utilisateur.
+ * Si un élément #status-message existe, on l'utilise, sinon on fait un alert().
+ */
+function showMessage(text, type = "info") {
+  const box = document.getElementById("status-message");
+  if (!box) {
+    alert(text);
+    return;
+  }
+  box.textContent = text;
+  box.className = ""; // reset classes
+  box.classList.add(type === "error" ? "status-error" : "status-info");
+}
 
-// ==============================
-//  TABLE DES TYPES + FICHIERS PNG
-// ==============================
+/**
+ * Convertit un texte "jj/mm/aaaa hh:mm" en ISO (UTC) pour l'API.
+ * Si pas d'heure fournie, on met 12:00.
+ */
+function parseFrenchDateTimeToISO(value) {
+  if (!value || !value.trim()) {
+    return null;
+  }
 
-const LEGEND_ITEMS = [
-  { type: "Vol", file: "vol.png" },
-  { type: "Cambriolage", file: "cambriolage.png" },
-  { type: "Agression", file: "agression.png" },
-  { type: "Agression sexuelle", file: "agression_sexuelle.png" },
-  { type: "Viol", file: "viol.png" },
-  { type: "Meurtre", file: "meurtre.png" },
-  { type: "Carjacking", file: "carjacking.png" },
-  { type: "Trafic de stupéfiants", file: "trafic_stupefiants.png" },
-  { type: "Dégradations", file: "degradations.png" },
-  { type: "Autre", file: "autre.png" },
-];
+  const parts = value.trim().split(" ");
+  const datePart = parts[0];
+  const timePart = parts[1] || "12:00";
 
-// ==============================
-//  ICÔNES PNG PAR TYPE DE CRIME
-// ==============================
+  const [day, month, year] = datePart.split("/").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
 
-function getCrimeIcon(crimeType) {
-  const item = LEGEND_ITEMS.find((i) => i.type === crimeType);
-  const fileName = item ? item.file : "default.png";
+  if (!day || !month || !year) {
+    return null;
+  }
 
-  return L.icon({
-    iconUrl: "img/" + fileName,
+  const dt = new Date(Date.UTC(year, month - 1, day, hour || 0, minute || 0));
+  return dt.toISOString();
+}
+
+/**
+ * Renvoie l'icône Leaflet correspondant à un type de fait.
+ * Si inconnu, utilise l'icône "autre".
+ */
+function getIconForCrimeType(crimeType) {
+  return iconsByCrimeType[crimeType] || iconsByCrimeType["Autre"] || null;
+}
+
+/**
+ * Formatte une date ISO en format "dd/mm/yyyy HH:MM".
+ */
+function formatISOToFrench(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+}
+
+// -----------------------------
+// INITIALISATION DE LA CARTE
+// -----------------------------
+
+function initMap() {
+  map = L.map("map").setView(INITIAL_CENTER, INITIAL_ZOOM);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  // Layer pour les rapports
+  reportsLayer = L.layerGroup().addTo(map);
+
+  // Clic sur la carte -> création / déplacement du marqueur de déclaration
+  map.on("click", onMapClick);
+
+  // Ajout de la légende (pictogrammes)
+  addLegendControl();
+}
+
+// -----------------------------
+// ICÔNES PAR TYPE DE FAIT
+// -----------------------------
+
+function initCrimeIcons() {
+  const baseIconOptions = {
     iconSize: [32, 32],
     iconAnchor: [16, 32],
-    popupAnchor: [0, -32],
-  });
+    popupAnchor: [0, -32]
+  };
+
+  function makeIcon(fileName) {
+    return L.icon({
+      ...baseIconOptions,
+      iconUrl: `img/${fileName}`
+    });
+  }
+
+  // Adapter les clés EXACTEMENT aux valeurs du <select> "Type de fait"
+  iconsByCrimeType = {
+    "Vol": makeIcon("vol.png"),
+    "Cambriolage": makeIcon("cambriolage.png"),
+    "Agression": makeIcon("agression.png"),
+    "Agression sexuelle": makeIcon("Agression_sexuelle.png"),
+    "Viol": makeIcon("viol.png"),
+    "Meurtre": makeIcon("meurtre.png"),
+    "Carjacking": makeIcon("carjacking.png"),
+    "Trafic de stupéfiants": makeIcon("trafic_stupefiants.png"),
+    "Dégradations": makeIcon("degradations.png"),
+    "Autre": makeIcon("autre.png")
+  };
 }
 
-// ==============================
-//  PANNEAU "DÉCLARATION CITOYENNE"
-// ==============================
+// -----------------------------
+// LÉGENDE LEAFLET
+// -----------------------------
 
-const reportPanel = document.getElementById("report-panel");
-const btnOpenReport = document.getElementById("btn-open-report");
-const btnCloseReport = document.getElementById("btn-close-report");
+function addLegendControl() {
+  const legend = L.control({ position: "bottomright" });
 
-if (reportPanel) {
-  reportPanel.style.display = "flex";
+  legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "crime-legend");
+    div.innerHTML = "<strong>Types de faits</strong><br>";
+
+    for (const [label, icon] of Object.entries(iconsByCrimeType)) {
+      const url = icon && icon.options.iconUrl ? icon.options.iconUrl : "";
+      if (!url) continue;
+      div.innerHTML += `
+        <div class="legend-item">
+          <img src="${url}" alt="${label}" width="20" height="20" />
+          <span>${label}</span>
+        </div>
+      `;
+    }
+
+    return div;
+  };
+
+  legend.addTo(map);
 }
 
-if (btnOpenReport) {
-  btnOpenReport.addEventListener("click", function () {
-    reportPanel.style.display = "flex";
-  });
+// -----------------------------
+// GESTION DU CLIC SUR LA CARTE
+// -----------------------------
+
+function onMapClick(e) {
+  const { lat, lng } = e.latlng;
+
+  // Si un marqueur existe déjà, on le déplace
+  if (currentMarker) {
+    currentMarker.setLatLng([lat, lng]);
+  } else {
+    currentMarker = L.marker([lat, lng]).addTo(map);
+  }
+
+  // Mise à jour de l'adresse via reverse geocoding
+  reverseGeocode(lat, lng);
 }
 
-if (btnCloseReport) {
-  btnCloseReport.addEventListener("click", function () {
-    reportPanel.style.display = "none";
-  });
+/**
+ * Reverse geocoding avec Nominatim pour préremplir adresse / CP / ville.
+ */
+function reverseGeocode(lat, lng) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=fr`;
+
+  fetch(url)
+    .then((r) => r.json())
+    .then((data) => {
+      const addressInput = document.getElementById("address");
+      const postalInput = document.getElementById("postal_code");
+      const cityInput = document.getElementById("city");
+
+      if (addressInput && data.display_name) {
+        addressInput.value = data.display_name;
+      }
+
+      if (data.address) {
+        if (postalInput && data.address.postcode) {
+          postalInput.value = data.address.postcode;
+        }
+        if (cityInput && (data.address.city || data.address.town || data.address.village)) {
+          cityInput.value = data.address.city || data.address.town || data.address.village;
+        }
+      }
+    })
+    .catch((err) => {
+      console.error("Erreur reverse geocoding:", err);
+    });
 }
 
-// ==============================
-//  CARTE LEAFLET
-// ==============================
+// -----------------------------
+// ENVOI D'UNE DÉCLARATION
+// -----------------------------
 
-const map = L.map("map").setView([46.8, 2.5], 6);
+function onReportFormSubmit(event) {
+  event.preventDefault();
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "&copy; OpenStreetMap contributors",
-}).addTo(map);
+  const selectCrimeType = document.getElementById("crime_type");
+  const inputDatetime = document.getElementById("datetime");
+  const inputAddress = document.getElementById("address");
+  const inputPostalCode = document.getElementById("postal_code");
+  const inputCity = document.getElementById("city");
+  const inputDescription = document.getElementById("description");
+  const inputMedia = document.getElementById("media");
 
-reportMarkersLayer = L.layerGroup().addTo(map);
-
-// ==============================
-//  RECHERCHE VILLE / ADRESSE
-// ==============================
-
-const searchInput = document.querySelector(".search-bar input");
-const searchButton = document.querySelector(".search-bar button");
-
-// petit marqueur pour les résultats de recherche
-let searchMarker = null;
-
-async function searchLocation() {
-  if (!searchInput) return;
-
-  const query = searchInput.value.trim();
-  if (!query) {
-    alert("Merci de saisir une ville ou une adresse.");
+  if (!selectCrimeType || !inputDatetime || !inputAddress || !inputPostalCode || !inputCity || !inputDescription) {
+    showMessage("Erreur interne : certains champs du formulaire sont introuvables.", "error");
     return;
   }
 
-  const url =
-    "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=fr&q=" +
-    encodeURIComponent(query);
+  if (!currentMarker) {
+    showMessage("Veuillez d'abord cliquer sur la carte pour positionner le point.", "error");
+    return;
+  }
 
-  try {
-    const res = await fetch(url, {
-      headers: { "Accept-Language": "fr" },
+  const crimeType = selectCrimeType.value;
+  const datetimeISO = parseFrenchDateTimeToISO(inputDatetime.value);
+  const address = inputAddress.value.trim();
+  const postalCode = inputPostalCode.value.trim();
+  const city = inputCity.value.trim();
+  const description = inputDescription.value.trim();
+
+  if (!crimeType || !address || !postalCode || !city || !datetimeISO) {
+    showMessage("Merci de renseigner le type de fait, la date, l'adresse, le code postal et la ville.", "error");
+    return;
+  }
+
+  const { lat, lng } = currentMarker.getLatLng();
+
+  const payload = {
+    crime_type: crimeType,
+    datetime: datetimeISO,
+    address: address,
+    postal_code: postalCode,
+    city: city,
+    description: description,
+    latitude: lat,
+    longitude: lng
+  };
+
+  showMessage("Envoi de votre déclaration en cours...", "info");
+
+  fetch(`${API_BASE_URL}/api/reports`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Erreur API (${response.status})`);
+      }
+      return response.json();
+    })
+    .then(async (createdReport) => {
+      showMessage("Déclaration enregistrée avec succès !", "info");
+
+      // Upload éventuel des fichiers (optionnel)
+      if (inputMedia && inputMedia.files && inputMedia.files.length > 0 && createdReport && createdReport.id) {
+        const formData = new FormData();
+        for (const file of inputMedia.files) {
+          formData.append("files", file);
+        }
+
+        try {
+          const uploadResponse = await fetch(
+            `${API_BASE_URL}/api/reports/${createdReport.id}/files`,
+            {
+              method: "POST",
+              body: formData
+            }
+          );
+
+          if (!uploadResponse.ok) {
+            console.warn("Erreur lors de l'upload des fichiers:", await uploadResponse.text());
+          }
+        } catch (uploadErr) {
+          console.warn("Exception upload fichiers:", uploadErr);
+        }
+      }
+
+      // Réinitialisation du formulaire et rechargement des rapports
+      resetReportForm();
+      loadReports();
+    })
+    .catch((err) => {
+      console.error("Erreur lors de l'envoi du rapport:", err);
+      showMessage("Erreur lors de l'enregistrement. Réessayez plus tard.", "error");
     });
-    if (!res.ok) throw new Error("Erreur Nominatim");
+}
 
-    const data = await res.json();
-    if (!data || data.length === 0) {
-      alert("Aucun résultat trouvé pour cette recherche.");
-      return;
-    }
+/**
+ * Réinitialise le formulaire + marqueur de déclaration.
+ */
+function resetReportForm() {
+  const form = document.getElementById("report-form");
+  if (form) {
+    form.reset();
+  }
 
-    const place = data[0];
-    const lat = parseFloat(place.lat);
-    const lon = parseFloat(place.lon);
-
-    // centre la carte sur le résultat
-    map.setView([lat, lon], 13);
-
-    // on ajoute / déplace un petit marqueur de recherche
-    if (searchMarker) {
-      searchMarker.setLatLng([lat, lon]);
-    } else {
-      searchMarker = L.marker([lat, lon]).addTo(map);
-    }
-  } catch (err) {
-    console.error("Erreur recherche adresse :", err);
-    alert("Erreur lors de la recherche. Réessayez plus tard.");
+  if (currentMarker) {
+    map.removeLayer(currentMarker);
+    currentMarker = null;
   }
 }
 
-// clic sur le bouton ALLER
-if (searchButton) {
-  searchButton.addEventListener("click", function () {
-    searchLocation();
-  });
+// -----------------------------
+// SUPPRESSION DU POINT COURANT
+// -----------------------------
+
+function onDeletePointClick() {
+  if (currentMarker) {
+    map.removeLayer(currentMarker);
+    currentMarker = null;
+    showMessage("Point supprimé. Cliquez à nouveau sur la carte pour en définir un.", "info");
+  }
 }
 
-// appui sur Entrée dans le champ texte
-if (searchInput) {
-  searchInput.addEventListener("keydown", function (e) {
+// -----------------------------
+// CHARGEMENT DES RAPPORTS EXISTANTS
+// -----------------------------
+
+function loadReports() {
+  if (!reportsLayer) return;
+
+  reportsLayer.clearLayers();
+
+  fetch(`${API_BASE_URL}/api/reports`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Erreur de chargement des rapports (${response.status})`);
+      }
+      return response.json();
+    })
+    .then((reports) => {
+      if (!Array.isArray(reports)) return;
+
+      reports.forEach((r) => {
+        if (typeof r.latitude !== "number" || typeof r.longitude !== "number") return;
+
+        const icon = getIconForCrimeType(r.crime_type);
+
+        const marker = L.marker([r.latitude, r.longitude], {
+          icon: icon || undefined
+        });
+
+        const popupHtml = `
+          <strong>${r.crime_type || "Fait signalé"}</strong><br/>
+          ${r.address || ""}<br/>
+          ${r.postal_code || ""} ${r.city || ""}<br/>
+          <em>${formatISOToFrench(r.datetime)}</em><br/><br/>
+          ${r.description ? r.description.replace(/\n/g, "<br/>") : ""}
+        `;
+
+        marker.bindPopup(popupHtml);
+        marker.addTo(reportsLayer);
+      });
+    })
+    .catch((err) => {
+      console.error("Erreur loadReports:", err);
+    });
+}
+
+// -----------------------------
+// BARRE DE RECHERCHE (Nominatim)
+// -----------------------------
+
+function initSearchBar() {
+  const input = document.getElementById("search-input");
+  const button = document.getElementById("search-button");
+
+  if (!input || !button) return;
+
+  function doSearch() {
+    const query = input.value.trim();
+    if (!query) return;
+
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+      query
+    )}&accept-language=fr`;
+
+    fetch(url)
+      .then((r) => r.json())
+      .then((results) => {
+        if (!Array.isArray(results) || results.length === 0) {
+          showMessage("Aucun résultat trouvé pour cette recherche.", "info");
+          return;
+        }
+
+        const best = results[0];
+        const lat = parseFloat(best.lat);
+        const lon = parseFloat(best.lon);
+
+        if (isNaN(lat) || isNaN(lon)) return;
+
+        map.setView([lat, lon], 16);
+      })
+      .catch((err) => {
+        console.error("Erreur recherche adresse:", err);
+      });
+  }
+
+  button.addEventListener("click", (e) => {
+    e.preventDefault();
+    doSearch();
+  });
+
+  input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      searchLocation();
+      doSearch();
     }
   });
 }
 
+// -----------------------------
+// INITIALISATION GLOBALE
+// -----------------------------
 
-// Limiter la carte à la France métropolitaine
-const franceBounds = L.latLngBounds(
-  [41.0, -5.5],  // sud-ouest (approx. Pyrénées / Espagne)
-  [51.7, 9.8]    // nord-est (approx. Nord / Allemagne)
-);
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    initCrimeIcons();
+    initMap();
+    initSearchBar();
+    loadReports();
 
-// on centre/zoom sur ces limites
-map.fitBounds(franceBounds);
-
-// on empêche de sortir de ces limites
-map.setMaxBounds(franceBounds);
-
-// petite sécurité si on essaie de “tirer” trop loin
-map.on("drag", function () {
-  map.panInsideBounds(franceBounds, { animate: false });
-});
-
-
-// Clics en 2 temps pour valider l'emplacement
-map.on("click", async function (e) {
-  const lat = e.latlng.lat;
-  const lng = e.latlng.lng;
-
-  // 1er clic : pose un point provisoire, mais ne valide rien
-  if (clickStage === 0) {
-    if (currentClickMarker) {
-      currentClickMarker.setLatLng(e.latlng);
-    } else {
-      currentClickMarker = L.marker(e.latlng).addTo(map);
+    const form = document.getElementById("report-form");
+    if (form) {
+      form.addEventListener("submit", onReportFormSubmit);
     }
 
-    // on efface les valeurs validées existantes
-    lastClickedLat = null;
-    lastClickedLng = null;
+    const deleteBtn = document.getElementById("delete-point-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", onDeletePointClick);
+    }
 
-    const latInput = document.getElementById("lat");
-    const lngInput = document.getElementById("lng");
-    if (latInput) latInput.value = "";
-    if (lngInput) lngInput.value = "";
-
-    const addressInput = document.getElementById("address");
-    const postcodeInput = document.getElementById("postcode");
-    const cityInput = document.getElementById("city");
-    if (addressInput) addressInput.value = "";
-    if (postcodeInput) postcodeInput.value = "";
-    if (cityInput) cityInput.value = "";
-
-    clickStage = 1;
-    alert("Cliquez une deuxième fois pour valider l'emplacement.");
-    return;
-  }
-
-  // 2e clic : on valide le point, on remplit lat/lng et on fait le reverse geocoding
-  if (currentClickMarker) {
-    currentClickMarker.setLatLng(e.latlng);
-  } else {
-    currentClickMarker = L.marker(e.latlng).addTo(map);
-  }
-
-  lastClickedLat = lat;
-  lastClickedLng = lng;
-
-  const latInput = document.getElementById("lat");
-  const lngInput = document.getElementById("lng");
-  if (latInput) latInput.value = lat;
-  if (lngInput) lngInput.value = lng;
-
-  clickStage = 0; // retour à l'état initial
-
-  // reverse geocoding après validation
-  const url =
-    "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" +
-    lat +
-    "&lon=" +
-    lng +
-    "&addressdetails=1";
-
-  try {
-    const res = await fetch(url, {
-      headers: { "Accept-Language": "fr" },
-    });
-    if (!res.ok) throw new Error("Réponse invalide de Nominatim");
-
-    const data = await res.json();
-    const addr = data.address || {};
-
-    const road = addr.road || "";
-    const houseNumber = addr.house_number || "";
-    const postcode = addr.postcode || "";
-    const city =
-      addr.city || addr.town || addr.village || addr.hamlet || "";
-
-    const fullAddress = (houseNumber + " " + road).trim();
-
-    const addressInput = document.getElementById("address");
-    const postcodeInput = document.getElementById("postcode");
-    const cityInput = document.getElementById("city");
-
-    if (addressInput) addressInput.value = fullAddress;
-    if (postcodeInput) postcodeInput.value = postcode;
-    if (cityInput) cityInput.value = city;
+    showMessage("Cliquez sur la carte pour placer le point, remplissez le formulaire puis envoyez votre déclaration.");
   } catch (err) {
-    console.error("Erreur reverse geocoding :", err);
+    console.error("Erreur d'initialisation report.js:", err);
+    showMessage("Erreur d'initialisation de la carte. Réessayez plus tard.", "error");
   }
 });
-
-// ==============================
-//  BOUTON "SUPPRIMER LE POINT"
-// ==============================
-
-const clearPointBtn = document.getElementById("clear-point-btn");
-
-if (clearPointBtn) {
-  clearPointBtn.addEventListener("click", function () {
-    if (currentClickMarker) {
-      map.removeLayer(currentClickMarker);
-      currentClickMarker = null;
-    }
-
-    lastClickedLat = null;
-    lastClickedLng = null;
-    clickStage = 0;
-
-    const latInput = document.getElementById("lat");
-    const lngInput = document.getElementById("lng");
-    const addressInput = document.getElementById("address");
-    const postcodeInput = document.getElementById("postcode");
-    const cityInput = document.getElementById("city");
-
-    if (latInput) latInput.value = "";
-    if (lngInput) lngInput.value = "";
-    if (addressInput) addressInput.value = "";
-    if (postcodeInput) postcodeInput.value = "";
-    if (cityInput) cityInput.value = "";
-  });
-}
-
-// ==============================
-//  LÉGENDE LEAFLET (PNG)
-// ==============================
-
-const legendControl = L.control({ position: "bottomright" });
-
-legendControl.onAdd = function () {
-  const div = L.DomUtil.create("div", "legend");
-
-  const title = document.createElement("div");
-  title.className = "legend-title";
-  title.textContent = "Types de faits";
-  div.appendChild(title);
-
-  LEGEND_ITEMS.forEach((item) => {
-    const row = document.createElement("div");
-    row.className = "legend-item";
-    row.innerHTML =
-      '<img src="img/' +
-      item.file +
-      '" class="legend-icon" alt="' +
-      item.type +
-      '"/> <span>' +
-      item.type +
-      "</span>";
-    div.appendChild(row);
-  });
-
-  L.DomEvent.disableClickPropagation(div);
-  return div;
-};
-
-legendControl.addTo(map);
-
-// ==============================
-//  CHARGER LES CRIMES EXISTANTS
-// ==============================
-
-async function loadReports() {
-  try {
-    const res = await fetch(API_BASE + "/api/reports");
-    if (!res.ok) throw new Error("Erreur lors du chargement des reports");
-
-    const reports = await res.json();
-
-    reportMarkersLayer.clearLayers();
-
-    reports.forEach(function (r) {
-      if (
-        typeof r.latitude !== "number" ||
-        typeof r.longitude !== "number"
-      ) {
-        return;
-      }
-
-      const icon = getCrimeIcon(r.crime_type);
-      const m = L.marker([r.latitude, r.longitude], { icon: icon });
-
-      let dateText = "";
-      try {
-        const d = new Date(r.date_time);
-        if (!isNaN(d.getTime())) {
-          dateText = d.toLocaleString("fr-FR", {
-            dateStyle: "short",
-            timeStyle: "short",
-          });
-        }
-      } catch (e) {}
-
-      let popupHtml =
-        "<strong>" +
-        (r.crime_type || "Fait déclaré") +
-        "</strong><br/>" +
-        (r.address || "") +
-        "<br/>" +
-        (r.postcode || "") +
-        " " +
-        (r.city || "");
-
-      if (dateText) {
-        popupHtml += "<br/><small>" + dateText + "</small>";
-      }
-
-      if (r.description) {
-        popupHtml +=
-          "<br/><small>" +
-          r.description.replace(/</g, "&lt;").replace(/>/g, "&gt;") +
-          "</small>";
-      }
-
-      m.bindPopup(popupHtml);
-      m.addTo(reportMarkersLayer);
-    });
-  } catch (err) {
-    console.error("Erreur loadReports :", err);
-  }
-}
-
-loadReports();
-
-// ==============================
-//  FORMULAIRE DE DÉCLARATION
-// ==============================
-
-const form = document.getElementById("crime-form");
-const resultDiv = document.getElementById("result");
-
-if (form) {
-  form.addEventListener("submit", async function (event) {
-    event.preventDefault();
-
-    const crimeType = document.getElementById("crime_type")?.value || "";
-    const dateTime = document.getElementById("date_time")?.value || "";
-    const address = document.getElementById("address")?.value || "";
-    const postcode = document.getElementById("postcode")?.value || "";
-    const city = document.getElementById("city")?.value || "";
-    const description =
-      document.getElementById("description")?.value || "";
-
-    const latVal = document.getElementById("lat")?.value || "";
-    const lngVal = document.getElementById("lng")?.value || "";
-    const lat = parseFloat(latVal);
-    const lng = parseFloat(lngVal);
-
-    if (!crimeType || !dateTime || !address || !postcode || !city) {
-      alert("Merci de remplir tous les champs obligatoires.");
-      return;
-    }
-
-    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-      alert(
-        "Merci de valider un point sur la carte (2 clics) avant d'envoyer la déclaration."
-      );
-      return;
-    }
-
-    const mediaInput = document.getElementById("media");
-
-    const fd = new FormData();
-    fd.append("crime_type", crimeType);
-    fd.append("description", description);
-    fd.append("date_time", dateTime);
-    fd.append("address", address);
-    fd.append("postcode", postcode);
-    fd.append("city", city);
-    fd.append("latitude", String(lat));
-    fd.append("longitude", String(lng));
-
-    if (mediaInput && mediaInput.files) {
-      for (let i = 0; i < mediaInput.files.length; i++) {
-        fd.append("files", mediaInput.files[i]);
-      }
-    }
-
-    try {
-      const res = await fetch(API_BASE + "/api/reports-with-media", {
-        method: "POST",
-        body: fd,
-      });
-
-      if (!res.ok) throw new Error("Erreur lors de l'envoi");
-
-      await res.json();
-
-      if (resultDiv) {
-        resultDiv.innerHTML =
-          "<p class='success'>Déclaration enregistrée, merci pour votre contribution.</p>";
-      }
-
-      form.reset();
-
-      if (currentClickMarker) {
-        map.removeLayer(currentClickMarker);
-        currentClickMarker = null;
-      }
-      lastClickedLat = null;
-      lastClickedLng = null;
-      clickStage = 0;
-
-      loadReports();
-    } catch (err) {
-      console.error(err);
-      if (resultDiv) {
-        resultDiv.innerHTML =
-          "<p class='error'>Erreur lors de l'enregistrement. Réessayez plus tard.</p>";
-      }
-    }
-  });
-}
-
-// ==============================
-//  MODALE "RECEVOIR DES ALERTES"
-// ==============================
-
-const alertModal = document.getElementById("alert-modal");
-const btnAlerts = document.querySelector(".btn-alerts");
-const alertForm = document.getElementById("alert-form");
-const alertCancel = document.getElementById("alert-cancel");
-const alertResult = document.getElementById("alert-result");
-
-if (btnAlerts && alertModal) {
-  btnAlerts.addEventListener("click", function () {
-    if (lastClickedLat === null || lastClickedLng === null) {
-      alert(
-        "Validez d'abord un point sur la carte (2 clics) pour définir votre zone d'alerte."
-      );
-      return;
-    }
-    if (alertResult) alertResult.innerHTML = "";
-    alertModal.style.display = "flex";
-  });
-}
-
-if (alertCancel && alertModal) {
-  alertCancel.addEventListener("click", function () {
-    alertModal.style.display = "none";
-  });
-}
-
-if (alertForm) {
-  alertForm.addEventListener("submit", async function (e) {
-    e.preventDefault();
-
-    if (lastClickedLat === null || lastClickedLng === null) {
-      alert(
-        "Validez d'abord un point sur la carte (2 clics) pour définir votre zone d'alerte."
-      );
-      return;
-    }
-
-    const email = document.getElementById("alert-email")?.value || "";
-    const radiusStr =
-      document.getElementById("alert-radius")?.value || "5";
-    const radius = parseFloat(radiusStr);
-
-    const crimeTypeCheckboxes = document.querySelectorAll(
-      ".alert-crime-types input[type='checkbox']:checked"
-    );
-    const crimeTypes = Array.from(crimeTypeCheckboxes).map(function (cb) {
-      return cb.value;
-    });
-
-    if (!email) {
-      alert("Merci de renseigner votre email.");
-      return;
-    }
-    if (!radius || isNaN(radius)) {
-      alert("Merci de renseigner un rayon valide.");
-      return;
-    }
-    if (crimeTypes.length === 0) {
-      alert("Sélectionnez au moins un type de fait.");
-      return;
-    }
-
-    const payload = {
-      email: email,
-      center_lat: lastClickedLat,
-      center_lng: lastClickedLng,
-      radius_km: radius,
-      crime_types: crimeTypes,
-    };
-
-    try {
-      const res = await fetch(API_BASE + "/api/alerts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Erreur lors de l'abonnement");
-
-      await res.json();
-
-      if (alertResult) {
-        alertResult.innerHTML =
-          "<span class='success'>Abonnement enregistré. Vous recevrez des alertes pour cette zone.</span>";
-      }
-
-      const circle = L.circle([lastClickedLat, lastClickedLng], {
-        radius: radius * 1000,
-        color: "#ff4136",
-        weight: 1,
-        fillColor: "#ff4136",
-        fillOpacity: 0.15,
-      });
-      circle.addTo(map);
-
-      alertForm.reset();
-    } catch (err) {
-      console.error(err);
-      if (alertResult) {
-        alertResult.innerHTML =
-          "<span class='error'>Erreur lors de l'abonnement. Réessayez plus tard.</span>";
-      }
-    }
-  });
-}
-
-// ==============================
-//  MODALE INSCRIPTION
-// ==============================
-
-const registerModal = document.getElementById("register-modal");
-const btnRegister = document.querySelector(".btn-register");
-const registerForm = document.getElementById("register-form");
-const registerCancel = document.getElementById("register-cancel");
-const registerResult = document.getElementById("register-result");
-
-if (btnRegister && registerModal) {
-  btnRegister.addEventListener("click", function () {
-    if (registerResult) registerResult.innerHTML = "";
-    registerModal.style.display = "flex";
-  });
-}
-
-if (registerCancel && registerModal) {
-  registerCancel.addEventListener("click", function () {
-    registerModal.style.display = "none";
-  });
-}
-
-if (registerForm) {
-  registerForm.addEventListener("submit", async function (e) {
-    e.preventDefault();
-
-    const firstName = document.getElementById("reg-first-name")?.value || "";
-    const lastName = document.getElementById("reg-last-name")?.value || "";
-    const ageStr = document.getElementById("reg-age")?.value || "";
-    const email = document.getElementById("reg-email")?.value || "";
-    const password =
-      document.getElementById("reg-password")?.value || "";
-    const address =
-      document.getElementById("reg-address")?.value || "";
-    const postcode =
-      document.getElementById("reg-postcode")?.value || "";
-    const city = document.getElementById("reg-city")?.value || "";
-
-    const age = ageStr ? parseInt(ageStr, 10) : null;
-
-    if (!firstName || !lastName || !email || !password) {
-      alert("Merci de remplir au minimum prénom, nom, email et mot de passe.");
-      return;
-    }
-
-    const payload = {
-      first_name: firstName,
-      last_name: lastName,
-      age: age,
-      email: email,
-      password: password,
-      address: address,
-      postcode: postcode,
-      city: city,
-    };
-
-    try {
-      const res = await fetch(API_BASE + "/api/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const text = await res.text();
-      let data = null;
-      try {
-        data = JSON.parse(text);
-      } catch (_) {}
-
-      if (!res.ok) {
-        const msg =
-          (data && data.detail) ||
-          "Erreur lors de l'inscription. Réessayez plus tard.";
-        if (registerResult) {
-          registerResult.innerHTML =
-            "<span class='error'>" + msg + "</span>";
-        }
-        return;
-      }
-
-      if (registerResult) {
-        registerResult.innerHTML =
-          "<span class='success'>Compte créé avec succès.</span>";
-      }
-
-      registerForm.reset();
-    } catch (err) {
-      console.error(err);
-      if (registerResult) {
-        registerResult.innerHTML =
-          "<span class='error'>Erreur lors de l'inscription. Réessayez plus tard.</span>";
-      }
-    }
-  });
-}
