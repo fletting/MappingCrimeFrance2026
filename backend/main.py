@@ -15,6 +15,14 @@ origins = [
     "https://thunderous-hamster-452ee6.netlify.app",
 ]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, SessionLocal
