@@ -1,15 +1,16 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <title>MAPPINGCRIME France – Carte citoyenne</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Leaflet CSS (SANS integrity / crossorigin) -->
+  <!-- Leaflet CSS (version 1.9.4) -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
   />
 
   <!-- Ton CSS -->
@@ -26,24 +27,29 @@
       </div>
     </div>
 
+    <!-- Recherche d’adresse / ville -->
     <form id="searchForm" class="search-form">
       <input
         id="searchInput"
         type="text"
-        placeholder="Rechercher une ville, une adresse..."
+        placeholder="Rechercher une ville, une adresse…"
         autocomplete="off"
       />
       <button type="submit">ALLER</button>
     </form>
 
     <div class="topbar-actions">
-      <button type="button" id="registerBtn" class="btn-secondary">S'inscrire</button>
-      <button type="button" id="alertsBtn" class="btn-primary">Recevoir des alertes</button>
+      <button type="button" id="registerBtn" class="btn-secondary">
+        S'inscrire
+      </button>
+      <button type="button" id="alertsBtn" class="btn-primary">
+        Recevoir des alertes
+      </button>
 
       <div class="period-selector">
         <span>Période :</span>
         <select id="periodSelect">
-          <option value="7">7 derniers jours</option>
+          <option value="7" selected>7 derniers jours</option>
           <option value="30">30 derniers jours</option>
           <option value="365">12 derniers mois</option>
           <option value="all">Tout</option>
@@ -54,7 +60,7 @@
 
   <!-- CONTENU PRINCIPAL -->
   <main class="main-layout">
-    <!-- SIDEBAR DECLARATION -->
+    <!-- COLONNE GAUCHE : FORMULAIRE -->
     <aside class="sidebar">
       <section class="declaration-panel">
         <div class="panel-header">
@@ -62,8 +68,8 @@
         </div>
 
         <p class="panel-warning">
-          Cette plateforme ne remplace pas un dépôt de plainte auprès de la police ou de la
-          gendarmerie. En cas d'urgence, appelez le
+          Cette plateforme ne remplace pas un dépôt de plainte auprès de la police
+          ou de la gendarmerie. En cas d'urgence, appelez le
           <strong>17 / 15 / 18 / 112</strong>.
         </p>
 
@@ -84,7 +90,7 @@
             <option value="autre">Autre</option>
           </select>
 
-          <!-- Date/heure -->
+          <!-- Date / heure -->
           <label for="datetime">Date et heure (approximatives)</label>
           <input
             id="datetime"
@@ -116,70 +122,114 @@
             id="description"
             name="description"
             rows="4"
-            placeholder="Décrivez les faits..."
+            placeholder="Décrivez les faits…"
           ></textarea>
 
           <!-- Bouton suppression du point -->
-          <button type="button" id="removePointBtn" class="btn-secondary btn-sm" disabled>
+          <button
+            type="button"
+            id="removePointBtn"
+            class="btn-secondary btn-sm"
+            disabled
+          >
             Supprimer le point
           </button>
 
           <!-- Fichiers -->
-          <label for="fileInput" class="file-label">Photos / vidéos (optionnel)</label>
+          <label for="fileInput" class="file-label">
+            Photos / vidéos (optionnel)
+          </label>
           <input id="fileInput" name="files" type="file" multiple />
 
-          <!-- Message d’erreur -->
+          <!-- Message d’erreur / info -->
           <p id="formError" class="form-error" aria-live="polite"></p>
 
           <!-- Bouton envoyer -->
-          <button type="submit" class="btn-submit">Envoyer ma déclaration</button>
+          <button type="submit" class="btn-submit">
+            Envoyer ma déclaration
+          </button>
         </form>
       </section>
     </aside>
 
-    <!-- CARTE -->
+    <!-- COLONNE DROITE : CARTE + LÉGENDE -->
     <section class="map-wrapper">
       <div id="map"></div>
 
-      <!-- LÉGENDE -->
+      <!-- Légende / filtres -->
       <div class="map-legend">
         <h2>Types de faits</h2>
+
         <label>
           <input type="checkbox" class="filter-type" data-type="vol" checked />
           <img src="img/vol.png" alt="" /> Vol
         </label>
+
         <label>
-          <input type="checkbox" class="filter-type" data-type="cambriolage" checked />
+          <input
+            type="checkbox"
+            class="filter-type"
+            data-type="cambriolage"
+            checked
+          />
           <img src="img/cambriolage.png" alt="" /> Cambriolage
         </label>
+
         <label>
           <input type="checkbox" class="filter-type" data-type="agression" checked />
           <img src="img/agression.png" alt="" /> Agression
         </label>
+
         <label>
-          <input type="checkbox" class="filter-type" data-type="agression_sexuelle" checked />
+          <input
+            type="checkbox"
+            class="filter-type"
+            data-type="agression_sexuelle"
+            checked
+          />
           <img src="img/Agression_sexuelle.png" alt="" /> Agression sexuelle
         </label>
+
         <label>
           <input type="checkbox" class="filter-type" data-type="viol" checked />
           <img src="img/viol.png" alt="" /> Viol
         </label>
+
         <label>
           <input type="checkbox" class="filter-type" data-type="meurtre" checked />
           <img src="img/meurtre.png" alt="" /> Meurtre
         </label>
+
         <label>
-          <input type="checkbox" class="filter-type" data-type="carjacking" checked />
+          <input
+            type="checkbox"
+            class="filter-type"
+            data-type="carjacking"
+            checked
+          />
           <img src="img/carjacking.png" alt="" /> Carjacking
         </label>
+
         <label>
-          <input type="checkbox" class="filter-type" data-type="trafic_stupefiants" checked />
+          <input
+            type="checkbox"
+            class="filter-type"
+            data-type="trafic_stupefiants"
+            checked
+          />
           <img src="img/trafic_stupefiants.png" alt="" /> Trafic de stupéfiants
         </label>
+
         <label>
-          <input type="checkbox" class="filter-type" data-type="degradations" checked />
+          <input
+            type="checkbox"
+            class="filter-type"
+            data-type="degradations"
+            checked
+          />
           <img src="img/degradations.png" alt="" /> Dégradations
         </label>
+
         <label>
           <input type="checkbox" class="filter-type" data-type="autre" checked />
           <img src="img/autre.png" alt="" /> Autre
@@ -188,10 +238,14 @@
     </section>
   </main>
 
-  <!-- Leaflet JS (SANS integrity / crossorigin) -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
 
-  <!-- Ton JS -->
+  <!-- Ton script -->
   <script src="js/report.js"></script>
 </body>
 </html>

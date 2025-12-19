@@ -1,16 +1,21 @@
 // frontend/js/report.js
 
+// ==================== CONFIG ====================
+
 // URL de ton API Render
 const API_BASE_URL = "https://mappingcrime-api.onrender.com";
 
-// ------------- Variables globales -------------
+// ==================== VARIABLES GLOBALES ====================
+
 let map;
 let clickMarker = null;
 let reportMarkers = [];
 let isSubmitting = false;
 
-// ------------- Sélecteurs DOM -------------
-const reportForm = document.getElementById("reportForm");
+// ==================== ELEMENTS DU DOM ====================
+
+const reportForm =
+  document.getElementById("reportForm") || document.querySelector("form");
 const typeInput = document.getElementById("type");
 const datetimeInput = document.getElementById("datetime");
 const addressInput = document.getElementById("address");
@@ -27,9 +32,10 @@ const periodSelect = document.getElementById("periodSelect");
 
 const typeFilters = document.querySelectorAll(".filter-type");
 
-// ------------- Helpers UI -------------
+// ==================== HELPERS UI ====================
 
 function showMessage(msg, type = "info") {
+  console.log("[UI message]", type, msg);
   if (!formError) return;
   formError.textContent = msg;
   formError.className = `form-error form-error--${type}`;
@@ -43,15 +49,15 @@ function clearMessage() {
 
 function setSubmitting(on) {
   isSubmitting = on;
-  if (reportForm) {
-    const submitBtn = reportForm.querySelector('button[type="submit"]');
-    if (submitBtn) submitBtn.disabled = on;
-  }
+  if (!reportForm) return;
+  const submitBtn = reportForm.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = on;
 }
 
-// ------------- Initialisation de la carte -------------
+// ==================== INIT CARTE ====================
 
 function initMap() {
+  console.log("Init map…");
   map = L.map("map").setView([48.8566, 2.3522], 13); // Paris
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -61,13 +67,13 @@ function initMap() {
 
   map.on("click", onMapClick);
 
-  // Charger les déclarations existantes
   loadReports();
 }
 
-// ------------- Clic sur la carte -------------
+// ==================== CLIC SUR LA CARTE ====================
 
 async function onMapClick(e) {
+  console.log("Map click", e.latlng);
   const { lat, lng } = e.latlng;
 
   if (clickMarker) {
@@ -77,11 +83,8 @@ async function onMapClick(e) {
     clickMarker.on("dragend", onMarkerDragEnd);
   }
 
-  if (removePointBtn) {
-    removePointBtn.disabled = false;
-  }
+  if (removePointBtn) removePointBtn.disabled = false;
 
-  // Remplir les champs adresse / CP / ville
   await reverseGeocode(lat, lng);
 }
 
@@ -91,7 +94,7 @@ async function onMarkerDragEnd() {
   await reverseGeocode(lat, lng);
 }
 
-// ------------- Géocodage inverse (adresse depuis lat/lon) -------------
+// ==================== REVERSE GEOCODING ====================
 
 async function reverseGeocode(lat, lng) {
   try {
@@ -101,7 +104,8 @@ async function reverseGeocode(lat, lng) {
 
     const resp = await fetch(url, {
       headers: {
-        "User-Agent": "MappingCrimeFrance/1.0 (https://thunderous-hamster-452ee6.netlify.app)",
+        "User-Agent":
+          "MappingCrimeFrance/1.0 (https://thunderous-hamster-452ee6.netlify.app)",
       },
     });
 
@@ -128,12 +132,14 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
-// ------------- Recherche d’adresse (barre du haut) -------------
+// ==================== RECHERCHE ADRESSE ====================
 
 async function handleSearchSubmit(e) {
   e.preventDefault();
   const query = (searchInput?.value || "").trim();
   if (!query) return;
+
+  console.log("Recherche adresse:", query);
 
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -142,7 +148,8 @@ async function handleSearchSubmit(e) {
 
     const resp = await fetch(url, {
       headers: {
-        "User-Agent": "MappingCrimeFrance/1.0 (https://thunderous-hamster-452ee6.netlify.app)",
+        "User-Agent":
+          "MappingCrimeFrance/1.0 (https://thunderous-hamster-452ee6.netlify.app)",
       },
     });
 
@@ -164,10 +171,11 @@ async function handleSearchSubmit(e) {
   }
 }
 
-// ------------- Chargement des déclarations depuis l’API -------------
+// ==================== CHARGER LES DECLARATIONS ====================
 
 async function loadReports() {
   if (!map) return;
+  console.log("Chargement des déclarations…");
 
   try {
     const days = periodSelect ? periodSelect.value : "7";
@@ -181,11 +189,10 @@ async function loadReports() {
 
     const reports = await resp.json();
 
-    // Supprimer les anciens marqueurs
+    // Remove old markers
     reportMarkers.forEach((m) => map.removeLayer(m.marker));
     reportMarkers = [];
 
-    // Ajouter les nouveaux
     for (const report of reports) {
       const lat = report.latitude ?? report.lat;
       const lng = report.longitude ?? report.lon;
@@ -231,7 +238,7 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-// ------------- Filtres par type -------------
+// ==================== FILTRES ====================
 
 function applyTypeFilters() {
   if (!typeFilters || typeFilters.length === 0) return;
@@ -251,30 +258,36 @@ function applyTypeFilters() {
   });
 }
 
-// ------------- Soumission du formulaire -------------
+// ==================== SOUMISSION DU FORMULAIRE ====================
 
 async function handleSubmit(e) {
   e.preventDefault();
   clearMessage();
+  console.log("Submit formulaire…");
   if (isSubmitting) return;
 
-  // Vérifier qu'un point est posé sur la carte
   if (!clickMarker) {
-    showMessage("Cliquez sur la carte pour placer le point de l'incident.", "error");
+    showMessage(
+      "Cliquez sur la carte pour placer le point de l'incident.",
+      "error"
+    );
     return;
   }
 
-  const type = typeInput.value;
-  const datetime = datetimeInput.value;
-  const address = addressInput.value.trim();
-  const postal_code = postalCodeInput.value.trim();
-  const city = cityInput.value.trim();
-  const description = descriptionInput.value.trim();
+  const type = typeInput?.value || "";
+  const datetime = datetimeInput?.value || "";
+  const address = (addressInput?.value || "").trim();
+  const postal_code = (postalCodeInput?.value || "").trim();
+  const city = (cityInput?.value || "").trim();
+  const description = (descriptionInput?.value || "").trim();
 
   const { lat, lng } = clickMarker.getLatLng();
 
   if (!type || !datetime) {
-    showMessage("Merci de renseigner au minimum le type de fait et la date.", "error");
+    showMessage(
+      "Merci de renseigner au minimum le type de fait et la date.",
+      "error"
+    );
     return;
   }
 
@@ -285,14 +298,15 @@ async function handleSubmit(e) {
     latitude: lat,
     longitude: lng,
     address,
-    // IMPORTANT : le backend attend "postcode"
-    postcode: postal_code,
+    postcode: postal_code, // <-- IMPORTANT
     city,
   };
 
-  try {
-    setSubmitting(true);
+  console.log("Payload envoyé à l'API:", payload);
+  showMessage("Envoi de votre déclaration…", "info");
+  setSubmitting(true);
 
+  try {
     const resp = await fetch(`${API_BASE_URL}/api/reports`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -304,12 +318,11 @@ async function handleSubmit(e) {
     try {
       data = JSON.parse(text);
     } catch {
-      // ce n'est pas du JSON, on laisse data à null
+      /* pas du JSON, on laisse data à null */
     }
 
     if (!resp.ok) {
-      console.error("Réponse d'erreur API:", resp.status, text);
-
+      console.error("Réponse API erreur:", resp.status, text);
       if (data && Array.isArray(data.detail) && data.detail.length > 0) {
         const first = data.detail[0];
         const field = Array.isArray(first.loc) ? first.loc.join(" > ") : "";
@@ -324,26 +337,23 @@ async function handleSubmit(e) {
       return;
     }
 
-    // Succès
+    console.log("Déclaration OK:", data || text);
     showMessage(
       "Déclaration envoyée ! Merci pour votre contribution 🙏",
       "success"
     );
 
-    // Réinitialiser le formulaire
-    reportForm.reset();
+    if (reportForm) reportForm.reset();
 
-    // Supprimer le marqueur de clic
-    if (clickMarker) {
+    if (clickMarker && map) {
       map.removeLayer(clickMarker);
       clickMarker = null;
     }
     if (removePointBtn) removePointBtn.disabled = true;
 
-    // Recharger les déclarations depuis l'API
     await loadReports();
   } catch (err) {
-    console.error("Erreur lors de l'envoi de la déclaration:", err);
+    console.error("Erreur fetch /api/reports:", err);
     showMessage(
       "Impossible de contacter le serveur. Réessayez un peu plus tard.",
       "error"
@@ -353,9 +363,10 @@ async function handleSubmit(e) {
   }
 }
 
-// ------------- Bouton "Supprimer le point" -------------
+// ==================== BOUTON SUPPRIMER LE POINT ====================
 
 function handleRemovePoint() {
+  console.log("Suppression du point");
   if (clickMarker && map) {
     map.removeLayer(clickMarker);
   }
@@ -363,11 +374,14 @@ function handleRemovePoint() {
   if (removePointBtn) removePointBtn.disabled = true;
 }
 
-// ------------- Écouteurs d’événements -------------
+// ==================== LISTENERS ====================
 
 function attachEventListeners() {
+  console.log("Attache des écouteurs…");
   if (reportForm) {
     reportForm.addEventListener("submit", handleSubmit);
+  } else {
+    console.warn("Aucun formulaire trouvé pour la déclaration.");
   }
 
   if (removePointBtn) {
@@ -389,11 +403,15 @@ function attachEventListeners() {
   }
 }
 
-// ------------- Lancement -------------
+// ==================== MAIN ====================
 
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM entièrement chargé, report.js démarre…");
+
   if (typeof L === "undefined") {
-    console.error("Leaflet (L) n'est pas chargé. Vérifie la balise <script> leaflet dans index.html.");
+    console.error(
+      "Leaflet (L) n'est pas chargé. Vérifie la balise <script> leaflet dans index.html."
+    );
     showMessage(
       "Erreur de carte : Leaflet n'est pas chargé. Vérifie la configuration.",
       "error"
