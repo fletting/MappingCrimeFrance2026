@@ -13,15 +13,15 @@
     crossorigin=""
   />
 
-  <!-- Styles de l'application -->
+  <!-- CSS du site -->
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="app">
+<body>
   <!-- BARRE DU HAUT -->
   <header class="topbar">
     <div class="topbar-left">
-      <span class="logo">MC</span>
-      <div class="topbar-title">
+      <div class="logo">MC</div>
+      <div>
         <div class="site-name">MAPPINGCRIME France</div>
         <div class="site-subtitle">Contribuer à une communauté plus sûre</div>
       </div>
@@ -34,18 +34,14 @@
         placeholder="Rechercher une ville, une adresse..."
         autocomplete="off"
       />
-      <button type="submit" class="btn btn-primary btn-small">ALLER</button>
+      <button type="submit">ALLER</button>
     </form>
 
-    <div class="topbar-actions">
-      <button type="button" id="registerBtn" class="btn btn-secondary btn-small">
-        S'inscrire
-      </button>
-      <button type="button" id="alertsBtn" class="btn btn-primary btn-small">
-        Recevoir des alertes
-      </button>
+    <div class="topbar-right">
+      <button type="button" id="registerBtn" class="btn-secondary">S'inscrire</button>
+      <button type="button" id="alertsBtn" class="btn-primary">Recevoir des alertes</button>
 
-      <div class="period-selector">
+      <div class="period-select">
         <span>Période :</span>
         <select id="periodSelect">
           <option value="7">7 derniers jours</option>
@@ -57,182 +53,148 @@
     </div>
   </header>
 
-  <!-- CONTENU PRINCIPAL -->
+  <!-- LAYOUT PRINCIPAL -->
   <main class="layout">
-    <!-- COLONNE GAUCHE : DÉCLARATION CITOYENNE -->
+    <!-- COLONNE GAUCHE : DÉCLARATION -->
     <aside class="sidebar">
-      <section class="declaration-panel">
-        <div class="panel-header">
-          <h1>Déclaration citoyenne</h1>
-        </div>
+      <h1 class="sidebar-title">Déclaration citoyenne</h1>
 
-        <p class="panel-warning">
-          Cette plateforme ne remplace pas un dépôt de plainte auprès de la police ou de la
-          gendarmerie. En cas d'urgence, appelez le
-          <strong>17 / 15 / 18 / 112</strong>.
+      <p class="sidebar-warning">
+        Cette plateforme ne remplace pas un dépôt de plainte auprès de la police ou de la
+        gendarmerie. En cas d'urgence, appelez le
+        <strong>17 / 15 / 18 / 112</strong>.
+      </p>
+
+      <form id="reportForm" class="report-form">
+        <!-- Type de fait -->
+        <label for="type">Type de fait</label>
+        <select id="type" name="type" required>
+          <option value="">-- Sélectionner --</option>
+          <option value="vol">Vol</option>
+          <option value="cambriolage">Cambriolage</option>
+          <option value="agression">Agression</option>
+          <option value="agression_sexuelle">Agression sexuelle</option>
+          <option value="viol">Viol</option>
+          <option value="meurtre">Meurtre</option>
+          <option value="carjacking">Carjacking</option>
+          <option value="trafic_stupefiants">Trafic de stupéfiants</option>
+          <option value="degradations">Dégradations</option>
+          <option value="autre">Autre</option>
+        </select>
+
+        <!-- Date / heure -->
+        <label for="datetime">Date et heure (approximatives)</label>
+        <input
+          id="datetime"
+          name="datetime"
+          type="datetime-local"
+          required
+        />
+
+        <!-- Adresse (préremplie par la carte) -->
+        <label for="address">Adresse (préremplie par la carte, modifiable)</label>
+        <input
+          id="address"
+          name="address"
+          type="text"
+          placeholder="Cliquez sur la carte pour préremplir l'adresse"
+        />
+
+        <label for="postalCode">Code postal</label>
+        <input id="postalCode" name="postalCode" type="text" />
+
+        <label for="city">Ville</label>
+        <input id="city" name="city" type="text" />
+
+        <!-- Description -->
+        <label for="description">
+          Description (sans noms/prénoms, ni infos permettant d’identifier quelqu’un)
+        </label>
+        <textarea
+          id="description"
+          name="description"
+          rows="4"
+          placeholder="Décrivez les faits..."
+        ></textarea>
+
+        <!-- Bouton suppression du point -->
+        <button type="button" id="removePointBtn" class="btn-secondary btn-sm" disabled>
+          Supprimer le point
+        </button>
+
+        <!-- Fichiers -->
+        <label for="fileInput" class="file-label">Photos / vidéos (optionnel)</label>
+        <input id="fileInput" name="files" type="file" multiple />
+
+        <!-- Zone de message (statut / erreur) -->
+        <p id="formStatus" class="form-status">
+          Envoi de votre déclaration...
         </p>
 
-        <form id="reportForm" class="report-form">
-          <!-- Type de fait -->
-          <label for="type">Type de fait</label>
-          <select id="type" name="type" required>
-            <option value="">-- Sélectionner --</option>
-            <option value="vol">Vol</option>
-            <option value="cambriolage">Cambriolage</option>
-            <option value="agression">Agression</option>
-            <option value="agression_sexuelle">Agression sexuelle</option>
-            <option value="viol">Viol</option>
-            <option value="meurtre">Meurtre</option>
-            <option value="carjacking">Carjacking</option>
-            <option value="trafic_stupefiants">Trafic de stupéfiants</option>
-            <option value="degradations">Dégradations</option>
-            <option value="autre">Autre</option>
-          </select>
-
-          <!-- Date / heure -->
-          <label for="datetime">Date et heure (approximatives)</label>
-          <input
-            id="datetime"
-            name="datetime"
-            type="datetime-local"
-            required
-          />
-
-          <!-- Adresse pré-remplie par la carte -->
-          <label for="address">Adresse (préremplie par la carte, modifiable)</label>
-          <input
-            id="address"
-            name="address"
-            type="text"
-            placeholder="Cliquez sur la carte pour préremplir l'adresse"
-          />
-
-          <label for="postalCode">Code postal</label>
-          <input
-            id="postalCode"
-            name="postalCode"
-            type="text"
-            inputmode="numeric"
-          />
-
-          <label for="city">Ville</label>
-          <input
-            id="city"
-            name="city"
-            type="text"
-          />
-
-          <!-- Description -->
-          <label for="description">
-            Description (sans noms/prénoms, ni infos permettant d’identifier quelqu’un)
-          </label>
-          <textarea
-            id="description"
-            name="description"
-            rows="4"
-            placeholder="Envoi de votre déclaration..."
-          ></textarea>
-
-          <!-- Bouton suppression du point -->
-          <button
-            type="button"
-            id="removePointBtn"
-            class="btn btn-secondary btn-small"
-            disabled
-          >
-            Supprimer le point
-          </button>
-
-          <!-- Fichiers -->
-          <label for="fileInput" class="file-label">
-            Photos / vidéos (optionnel)
-          </label>
-          <input id="fileInput" name="files" type="file" multiple />
-
-          <!-- Message d’erreur -->
-          <p id="formError" class="form-error" aria-live="polite"></p>
-
-          <!-- Bouton envoyer -->
-          <button type="submit" class="btn btn-submit">
-            Envoyer ma déclaration
-          </button>
-        </form>
-      </section>
+        <!-- Bouton d'envoi -->
+        <button type="submit" class="btn-submit">Envoyer ma déclaration</button>
+      </form>
     </aside>
 
-    <!-- CARTE -->
-    <section class="map-wrapper">
+    <!-- CARTE + LÉGENDE -->
+    <section class="map-panel">
       <div id="map"></div>
 
-      <!-- LÉGENDE -->
       <div class="map-legend">
         <h2>Types de faits</h2>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="vol" checked />
-          <img src="img/vol.png" alt="" />
-          <span>Vol</span>
+          <img src="img/vol.png" alt="" /> Vol
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="cambriolage" checked />
-          <img src="img/cambriolage.png" alt="" />
-          <span>Cambriolage</span>
+          <img src="img/cambriolage.png" alt="" /> Cambriolage
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="agression" checked />
-          <img src="img/agression.png" alt="" />
-          <span>Agression</span>
+          <img src="img/agression.png" alt="" /> Agression
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="agression_sexuelle" checked />
-          <img src="img/Agression_sexuelle.png" alt="" />
-          <span>Agression sexuelle</span>
+          <img src="img/agression_sexuelle.png" alt="" /> Agression sexuelle
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="viol" checked />
-          <img src="img/viol.png" alt="" />
-          <span>Viol</span>
+          <img src="img/viol.png" alt="" /> Viol
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="meurtre" checked />
-          <img src="img/meurtre.png" alt="" />
-          <span>Meurtre</span>
+          <img src="img/meurtre.png" alt="" /> Meurtre
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="carjacking" checked />
-          <img src="img/carjacking.png" alt="" />
-          <span>Carjacking</span>
+          <img src="img/carjacking.png" alt="" /> Carjacking
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="trafic_stupefiants" checked />
-          <img src="img/trafic_stupefiants.png" alt="" />
-          <span>Trafic de stupéfiants</span>
+          <img src="img/trafic_stupefiants.png" alt="" /> Trafic de stupéfiants
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="degradations" checked />
-          <img src="img/degradations.png" alt="" />
-          <span>Dégradations</span>
+          <img src="img/degradations.png" alt="" /> Dégradations
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="autre" checked />
-          <img src="img/autre.png" alt="" />
-          <span>Autre</span>
+          <img src="img/autre.png" alt="" /> Autre
         </label>
       </div>
     </section>
   </main>
-
-  <!-- Zone cachée pour debug (utilisée par report.js si besoin) -->
-  <pre id="debugOutput" class="debug-output" aria-hidden="true"></pre>
 
   <!-- Leaflet JS -->
   <script
@@ -241,7 +203,8 @@
     crossorigin=""
   ></script>
 
-  <!-- Logique de la carte & du formulaire -->
+  <!-- Ton script -->
   <script src="js/report.js"></script>
 </body>
 </html>
+

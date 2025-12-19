@@ -1,296 +1,254 @@
-/* ==============================
-   BASE GÉNÉRALE
-   ============================== */
+/* ====== RESET SIMPLE ====== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 html,
 body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: Arial, sans-serif;
 }
 
 body {
-  background-color: #f0f0f0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  background: #000;
+  color: #f5f5f5;
 }
 
-.app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-/* ==============================
-   BARRE DU HAUT
-   ============================== */
+/* ====== TOPBAR ====== */
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #000000;
-  color: #ffffff;
+  gap: 1rem;
   padding: 8px 16px;
+  background: #000;
+  color: #fff;
+  border-bottom: 1px solid #222;
 }
 
 .topbar-left {
-  flex: 0 0 auto;
-}
-
-.topbar-center {
-  flex: 1 1 auto;
-  display: flex;
-  justify-content: center;
-}
-
-.topbar-right {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-/* Logo + titre */
-
-.logo-block {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.logo-square {
+.logo {
   width: 32px;
   height: 32px;
-  border-radius: 4px;
-  background: #007acc;
+  border-radius: 50%;
+  background: #00b894;
+  color: #000;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  color: #ffffff;
+  font-weight: 700;
   font-size: 14px;
 }
 
-.site-title {
+.site-name {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .site-subtitle {
   font-size: 11px;
-  color: #dddddd;
+  color: #bbbbbb;
 }
 
 /* Barre de recherche */
 
-.search-bar {
-  display: flex;
+.search-form {
+  flex: 1;
   max-width: 480px;
-  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.search-bar input {
+.search-form input {
   flex: 1;
-  padding: 6px 8px;
-  border-radius: 4px 0 0 4px;
-  border: none;
-  outline: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #555;
   font-size: 13px;
 }
 
-.search-bar button {
+.search-form button {
   padding: 6px 12px;
-  border-radius: 0 4px 4px 0;
+  border-radius: 4px;
   border: none;
-  background-color: #5bb85b;
-  color: #ffffff;
+  background: #3498db;
+  color: white;
   font-weight: 600;
-  font-size: 12px;
   cursor: pointer;
 }
 
-/* Bouton alertes + période */
-
-.btn-alerts {
-  background-color: #ff4136;
-  border: none;
-  color: #ffffff;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
+.search-form button:hover {
+  background: #2980b9;
 }
 
-.period-box {
-  background-color: #ffffff;
-  color: #000000;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
+/* Boutons à droite */
 
-.period-label {
-  font-weight: 600;
-}
-
-.period-value {
-  margin-left: 4px;
-}
-
-/* ==============================
-   LAYOUT PRINCIPAL
-   ============================== */
-
-.main-layout {
-  flex: 1 1 auto;
+.topbar-right {
   display: flex;
-  min-height: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
 }
 
-/* ==============================
-   SIDEBAR (COLONNE GAUCHE)
-   ============================== */
+.btn-primary,
+.btn-secondary {
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #c0392b;
+}
+
+.btn-secondary {
+  background: #333;
+  color: #f5f5f5;
+}
+
+.btn-secondary:hover {
+  background: #444;
+}
+
+.period-select span {
+  margin-right: 4px;
+}
+
+.period-select select {
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background: #111;
+  color: #f5f5f5;
+  font-size: 12px;
+}
+
+/* ====== LAYOUT PRINCIPAL ====== */
+
+.layout {
+  display: flex;
+  height: calc(100vh - 48px); /* hauteur totale - topbar */
+}
+
+/* ====== SIDEBAR ====== */
 
 .sidebar {
-  width: 280px;
-  background-color: #000000; /* fond noir */
-  border-right: 1px solid #222222;
+  width: 320px;
+  background: #000;
+  padding: 16px 14px;
+  border-right: 1px solid #222;
   display: flex;
   flex-direction: column;
-  padding: 10px;
-  box-sizing: border-box;
+  color: #f5f5f5;
 }
 
-/* Bloc déclaration citoyenne */
-
-.report-panel {
-  margin-top: 10px;
-  background-color: #0b79d0; /* bleu */
-  color: #ffffff;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  padding: 10px 12px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 160px);
-  overflow-y: auto;
-}
-
-/* En-tête du bloc */
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.panel-header h2 {
-  font-size: 15px;
-  margin: 0;
-}
-
-.panel-close {
-  border: none;
-  background: transparent;
-  font-size: 18px;
-  cursor: pointer;
-  color: #ffffff;
-}
-
-/* Avertissement */
-
-.warning {
-  background-color: #fff5e5;
-  border-left: 4px solid #ff9900;
-  padding: 6px;
-  font-size: 11px;
+.sidebar-title {
   margin: 0 0 8px 0;
-  color: #333333; /* texte sombre dans la box */
+  font-size: 18px;
 }
 
-/* Formulaire dans le bloc bleu */
-
-#crime-form label {
-  display: block;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #ffffff;
+.sidebar-warning {
+  font-size: 11px;
+  color: #ffcc66;
+  margin-bottom: 14px;
 }
 
-#crime-form input,
-#crime-form select,
-#crime-form textarea {
-  width: 100%;
-  padding: 4px 6px;
-  box-sizing: border-box;
-  font-size: 12px;
-  margin-top: 2px;
-  background-color: #ffffff;
-  color: #000000;
-  border-radius: 2px;
-  border: 1px solid #cccccc;
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-#crime-form textarea {
-  resize: vertical;
-}
-
-/* Boutons */
-
-.btn-submit {
-  margin-top: 10px;
-  padding: 7px;
-  border: none;
-  background-color: #005ca0;
-  color: #ffffff;
+.report-form label {
+  font-size: 13px;
   font-weight: 600;
+}
+
+.report-form input,
+.report-form select,
+.report-form textarea {
+  width: 100%;
+  padding: 6px 8px;
   border-radius: 4px;
+  border: 1px solid #555;
+  background: #111;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+/* Placeholders bien visibles */
+.report-form input::placeholder,
+.report-form textarea::placeholder {
+  color: #aaaaaa;
+  opacity: 1;
+}
+
+/* Textarea plus confortable */
+#description {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Bouton supprimer le point */
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 11px;
+  align-self: flex-start;
+}
+
+/* Champ fichiers */
+.file-label {
+  font-size: 12px;
+}
+
+/* Message de statut / erreur très visible */
+.form-status {
+  font-size: 12px;
+  margin: 4px 0 0 0;
+  color: #ffd966; /* jaune lisible sur fond noir */
+}
+
+/* Bouton d'envoi */
+.btn-submit {
+  margin-top: 8px;
+  padding: 9px 10px;
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .btn-submit:hover {
-  background-color: #004a80;
+  background: #2980b9;
 }
 
-.btn-secondary {
-  margin-top: 8px;
-  padding: 6px;
-  border: none;
-  background-color: #999999;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 4px;
-  cursor: pointer;
-}
+/* ====== CARTE ====== */
 
-.btn-secondary:hover {
-  background-color: #777777;
-}
-
-/* Messages de résultat */
-
-#result {
-  margin-top: 6px;
-  font-size: 12px;
-}
-
-#result .success {
-  color: #00ff00;
-}
-
-#result .error {
-  color: #ffcccc;
-}
-
-/* ==============================
-   CARTE
-   ============================== */
-
-.map-layout {
-  flex: 1 1 auto;
+.map-panel {
+  flex: 1;
   position: relative;
+  background: #111;
 }
 
 #map {
@@ -298,151 +256,52 @@ body {
   height: 100%;
 }
 
-/* ==============================
-   MODALE ALERTES
-   ============================== */
+/* ====== LÉGENDE ====== */
 
-.alert-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: none;
+.map-legend {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #f5f5f5;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  max-width: 260px;
+}
+
+.map-legend h2 {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+}
+
+.map-legend label {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.alert-modal-content {
-  background: #ffffff;
-  border-radius: 6px;
-  padding: 16px 18px;
-  max-width: 420px;
-  width: 90%;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-
-.alert-modal-content h2 {
-  margin-top: 0;
-  font-size: 16px;
-}
-
-.small-info {
-  font-size: 11px;
-  color: #555555;
-}
-
-.alert-crime-types {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  font-size: 12px;
-  margin: 6px 0 8px 0;
-}
-
-.alert-crime-types label {
-  white-space: nowrap;
-}
-
-.alert-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.alert-modal-actions button {
-  padding: 6px 10px;
-  font-size: 12px;
-  border-radius: 4px;
-  border: 1px solid #cccccc;
-  cursor: pointer;
-}
-
-.alert-modal-actions .btn-submit {
-  border: none;
-}
-
-#alert-result {
-  margin-top: 8px;
-  font-size: 12px;
-}
-
-/* ==============================
-   LÉGENDE DES PICTOGRAMMES
-   ============================== */
-
-.legend {
-  background-color: #ffffff;
-  padding: 6px 8px;
-  border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  font-size: 11px;
-  line-height: 1.3;
-}
-
-.legend-title {
-  font-weight: 600;
+  gap: 6px;
   margin-bottom: 4px;
 }
 
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 2px;
+.map-legend img {
+  width: 18px;
+  height: 18px;
 }
 
-.legend-icon {
-  width: 16px;
-  height: 16px;
-}
-
-/* ==============================
-   RESPONSIVE
-   ============================== */
+/* ====== RESPONSIVE ====== */
 
 @media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
+    height: auto;
+  }
+
   .sidebar {
-    width: 240px;
-  }
-}
-
-@media (max-width: 768px) {
-  .topbar {
-    flex-wrap: wrap;
-    gap: 8px;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #222;
   }
 
-  .topbar-center {
-    order: 3;
+  .map-panel {
+    height: 60vh;
   }
 }
-
-/* Bouton inscription */
-
-.btn-register {
-  background-color: #444444;
-  border: none;
-  color: #ffffff;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.btn-register:hover {
-  background-color: #666666;
-}
-
-/* Modale inscription : on réutilise le style des alertes */
-
-.register-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
