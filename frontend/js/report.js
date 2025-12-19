@@ -1,312 +1,263 @@
-// ================================
-// CONFIG
-// ================================
+// frontend/js/report.js
 
-// URL de ton backend Render
-const API_BASE_URL = "https://mappingcrime-api.onrender.com"; // adapte si besoin
+// URL de ton API FastAPI sur Render (à adapter si besoin)
+const API_BASE = "https://mappingcrime-api.onrender.com"; // change si ton URL est différente
 
-// URLs Nominatim pour géocodage
-const NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
-const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
+// Références DOM
+const mapContainer = document.getElementById("map");
+const reportForm = document.getElementById("reportForm");
+const formError = document.getElementById("formError");
+const removePointBtn = document.getElementById("removePointBtn");
+const searchForm = document.getElementById("searchForm");
+const searchInput = document.getElementById("searchInput");
+const periodSelect = document.getElementById("periodSelect");
+const typeFilters = document.querySelectorAll(".filter-type");
 
-// ================================
-// INIT CARTE
-// ================================
+const addressInput = document.getElementById("address");
+const postalCodeInput = document.getElementById("postalCode");
+const cityInput = document.getElementById("city");
 
-const map = L.map("map").setView([46.5, 2], 6);
+// Variables pour la carte / les marqueurs
+let map;
+let clickMarker = null;         // marqueur du point que l'utilisateur place
+let selectedLat = null;
+let selectedLng = null;
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+let reportsLayer = null;        // layerGroup pour les rapports venant de l'API
+let reportMarkers = [];         // pour filtrer par type
 
-// ================================
-// ICONES
-// ================================
+// ----------------------- INITIALISATION CARTE -----------------------
 
-const iconBase = {
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -28]
-};
+function initMap() {
+  if (!mapContainer) return;
 
-const crimeIcons = {
-  vol: L.icon({ ...iconBase, iconUrl: "img/vol.png" }),
-  cambriolage: L.icon({ ...iconBase, iconUrl: "img/cambriolage.png" }),
-  agression: L.icon({ ...iconBase, iconUrl: "img/agression.png" }),
-  agression_sexuelle: L.icon({
-    ...iconBase,
-    iconUrl: "img/Agression_sexuelle.png"
-  }),
-  viol: L.icon({ ...iconBase, iconUrl: "img/viol.png" }),
-  meurtre: L.icon({ ...iconBase, iconUrl: "img/meurtre.png" }),
-  carjacking: L.icon({ ...iconBase, iconUrl: "img/carjacking.png" }),
-  trafic_stupefiants: L.icon({
-    ...iconBase,
-    iconUrl: "img/trafic_stupefiants.png"
-  }),
-  degradations: L.icon({ ...iconBase, iconUrl: "img/degradations.png" }),
-  autre: L.icon({ ...iconBase, iconUrl: "img/autre.png" })
-};
+  map = L.map("map").setView([46.5, 2.5], 6); // centre France
 
-function iconFor(type) {
-  return crimeIcons[type] || crimeIcons.autre;
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  reportsLayer = L.layerGroup().addTo(map);
+
+  // clic sur la carte pour placer le point
+  map.on("click", (e) => {
+    placeOrMoveClickMarker(e.latlng);
+  });
 }
 
-// ================================
-// ETAT
-// ================================
+function placeOrMoveClickMarker(latlng) {
+  selectedLat = latlng.lat;
+  selectedLng = latlng.lng;
 
-let currentMarker = null;
-let currentLatLng = null;
-const reportsLayer = L.layerGroup().addTo(map);
-
-// FORM / DOM
-const reportForm = document.getElementById("reportForm");
-const removePointBtn = document.getElementById("removePointBtn");
-const formError = document.getElementById("formError");
-
-const typeField = document.getElementById("type");
-const datetimeField = document.getElementById("datetime");
-const addressField = document.getElementById("address");
-const postalCodeField = document.getElementById("postalCode");
-const cityField = document.getElementById("city");
-const descriptionField = document.getElementById("description");
-const fileInput = document.getElementById("fileInput");
-const periodSelect = document.getElementById("periodSelect");
-
-// ================================
-// CLIC SUR LA CARTE
-// ================================
-
-map.on("click", async (e) => {
-  setCurrentMarker(e.latlng);
-
-  try {
-    const addr = await reverseGeocode(e.latlng.lat, e.latlng.lng);
-    if (addr) {
-      addressField.value = addr.addressLine || "";
-      postalCodeField.value = addr.postcode || "";
-      cityField.value = addr.city || "";
-    }
-  } catch (err) {
-    console.error("Erreur reverse geocode:", err);
-  }
-});
-
-function setCurrentMarker(latlng) {
-  currentLatLng = latlng;
-
-  if (!currentMarker) {
-    currentMarker = L.marker(latlng, { draggable: true }).addTo(map);
-
-    currentMarker.on("dragend", async (e) => {
-      const pos = e.target.getLatLng();
-      currentLatLng = pos;
-      try {
-        const addr = await reverseGeocode(pos.lat, pos.lng);
-        if (addr) {
-          addressField.value = addr.addressLine || "";
-          postalCodeField.value = addr.postcode || "";
-          cityField.value = addr.city || "";
-        }
-      } catch (err) {
-        console.error("Erreur reverse geocode drag:", err);
-      }
+  if (!clickMarker) {
+    clickMarker = L.marker(latlng, { draggable: true }).addTo(map);
+    clickMarker.on("dragend", () => {
+      const ll = clickMarker.getLatLng();
+      selectedLat = ll.lat;
+      selectedLng = ll.lng;
+      reverseGeocodeAndFill(ll.lat, ll.lng);
     });
   } else {
-    currentMarker.setLatLng(latlng);
+    clickMarker.setLatLng(latlng);
   }
 
   removePointBtn.disabled = false;
+  reverseGeocodeAndFill(latlng.lat, latlng.lng);
 }
 
-removePointBtn.addEventListener("click", () => {
-  if (currentMarker) {
-    map.removeLayer(currentMarker);
-    currentMarker = null;
-    currentLatLng = null;
-  }
-  removePointBtn.disabled = true;
-});
+// Reverse geocoding simple avec Nominatim pour préremplir adresse / CP / ville
+function reverseGeocodeAndFill(lat, lng) {
+  fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data || !data.address) return;
+      const addr = data.address;
 
-// ================================
-// RECHERCHE ADRESSE
-// ================================
+      const voie =
+        addr.road ||
+        addr.pedestrian ||
+        addr.footway ||
+        addr.cycleway ||
+        addr.residential ||
+        "";
 
-const searchForm = document.getElementById("searchForm");
-const searchInput = document.getElementById("searchInput");
+      const houseNumber = addr.house_number ? addr.house_number + " " : "";
+      const displayAddress = `${houseNumber}${voie}`.trim();
 
-searchForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const q = searchInput.value.trim();
-  if (!q) return;
-
-  try {
-    const url = `${NOMINATIM_SEARCH_URL}?format=json&q=${encodeURIComponent(
-      q
-    )}&limit=1&addressdetails=1`;
-    const res = await fetch(url, { headers: { "Accept-Language": "fr" } });
-    const data = await res.json();
-    if (data && data.length > 0) {
-      const { lat, lon } = data[0];
-      map.setView([parseFloat(lat), parseFloat(lon)], 15);
-    } else {
-      alert("Aucun résultat pour cette recherche.");
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Erreur lors de la recherche.");
-  }
-});
-
-// ================================
-// REVERSE GEOCODE
-// ================================
-
-async function reverseGeocode(lat, lng) {
-  const url = `${NOMINATIM_REVERSE_URL}?format=json&lat=${lat}&lon=${lng}&addressdetails=1`;
-  const res = await fetch(url, { headers: { "Accept-Language": "fr" } });
-  if (!res.ok) return null;
-  const data = await res.json();
-  const address = data.address || {};
-  const city = address.city || address.town || address.village || "";
-  const line =
-    (address.road || "") +
-    (address.house_number ? " " + address.house_number : "") +
-    (address.suburb ? ", " + address.suburb : "") +
-    (city ? ", " + city : "");
-  return {
-    addressLine: line,
-    postcode: address.postcode || "",
-    city
-  };
+      if (displayAddress) addressInput.value = displayAddress;
+      if (addr.postcode) postalCodeInput.value = addr.postcode;
+      if (addr.city || addr.town || addr.village || addr.hamlet) {
+        cityInput.value = addr.city || addr.town || addr.village || addr.hamlet;
+      }
+    })
+    .catch(() => {
+      // silencieux, pas de popup
+    });
 }
 
-// ================================
-// ENVOI FORMULAIRE
-// ================================
+// ----------------------- FORMULAIRE DÉCLARATION -----------------------
 
-reportForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
+function handleReportSubmit(event) {
+  event.preventDefault();
   formError.textContent = "";
 
-   if (!typeField.value) {
-    formError.textContent = "Merci de sélectionner un type de fait.";
+  const formData = new FormData(reportForm);
+
+  const type = formData.get("type");
+  const datetime = formData.get("datetime");
+  const description = formData.get("description") || "";
+
+  if (!type || !datetime) {
+    formError.textContent = "Veuillez renseigner le type de fait et la date/heure.";
     return;
   }
 
-  if (!datetimeField.value) {
-    formError.textContent =
-      "Merci d’indiquer une date et une heure approximatives.";
+  if (selectedLat === null || selectedLng === null) {
+    formError.textContent = "Veuillez cliquer sur la carte pour placer le point.";
     return;
   }
 
-  if (!descriptionField.value.trim()) {
-    formError.textContent =
-      "Merci de renseigner une description (sans données personnelles).";
-    return;
-  }
+  const payload = {
+    type,
+    datetime, // format ISO venant du input datetime-local
+    address: formData.get("address") || "",
+    postal_code: formData.get("postalCode") || "",
+    city: formData.get("city") || "",
+    description,
+    latitude: selectedLat,
+    longitude: selectedLng,
+  };
 
-  const fd = new FormData();
-  fd.append("type", typeField.value);
-  fd.append("datetime", datetimeField.value);
-  fd.append("latitude", currentLatLng.lat);
-  fd.append("longitude", currentLatLng.lng);
-  fd.append("address", addressField.value || "");
-  fd.append("postal_code", postalCodeField.value || "");
-  fd.append("city", cityField.value || "");
-  fd.append("description", descriptionField.value.trim());
+  fetch(`${API_BASE}/api/reports`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || "Erreur lors de l’enregistrement.");
+      }
+      return res.json();
+    })
+    .then(() => {
+      // Reset du formulaire + point
+      reportForm.reset();
+      formError.textContent = "";
+      selectedLat = null;
+      selectedLng = null;
+      if (clickMarker) {
+        map.removeLayer(clickMarker);
+        clickMarker = null;
+      }
+      removePointBtn.disabled = true;
 
-  if (fileInput.files && fileInput.files.length > 0) {
-    for (let i = 0; i < fileInput.files.length; i++) {
-      fd.append("files", fileInput.files[i]);
-    }
-  }
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/reports`, {
-      method: "POST",
-      body: fd
+      // Recharger les rapports depuis l'API
+      loadReports();
+    })
+    .catch((err) => {
+      console.error(err);
+      formError.textContent = "Erreur lors de l’enregistrement de la déclaration.";
     });
-
-    if (!res.ok) {
-      const txt = await res.text();
-      console.error("Erreur API:", txt);
-      throw new Error("Erreur API");
-    }
-
-    const created = await res.json();
-    addReportMarker(created);
-
-    reportForm.reset();
-    if (currentMarker) {
-      map.removeLayer(currentMarker);
-      currentMarker = null;
-      currentLatLng = null;
-    }
-    removePointBtn.disabled = true;
-    formError.textContent = "";
-
-    alert("Déclaration enregistrée. Merci pour votre contribution.");
-  } catch (err) {
-    console.error(err);
-    formError.textContent =
-      "Erreur lors de l’enregistrement. Merci de réessayer plus tard.";
-  }
-});
-
-// ================================
-// CHARGEMENT RAPPORTS EXISTANTS
-// ================================
-
-async function loadReports() {
-  reportsLayer.clearLayers();
-
-  let url = `${API_BASE_URL}/api/reports`;
-  const period = periodSelect.value;
-  if (period && period !== "all") {
-    url += `?days=${encodeURIComponent(period)}`;
-  }
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Erreur de chargement des rapports.");
-    const data = await res.json();
-    data.forEach((r) => addReportMarker(r));
-  } catch (err) {
-    console.error("Erreur chargement rapports:", err);
-  }
 }
 
-periodSelect.addEventListener("change", loadReports);
+function handleRemovePoint() {
+  if (clickMarker && map) {
+    map.removeLayer(clickMarker);
+    clickMarker = null;
+  }
+  selectedLat = null;
+  selectedLng = null;
+  removePointBtn.disabled = true;
+}
 
-function addReportMarker(report) {
-  const lat = parseFloat(report.latitude);
-  const lng = parseFloat(report.longitude);
-  if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+// ----------------------- CHARGEMENT DES RAPPORTS -----------------------
 
-  const marker = L.marker([lat, lng], {
-    icon: iconFor(report.type)
+function getSelectedTypes() {
+  const types = [];
+  typeFilters.forEach((cb) => {
+    if (cb.checked) types.push(cb.dataset.type);
   });
+  return types;
+}
 
-  const popup =
-    `<strong>${escapeHtml(labelForType(report.type))}</strong><br>` +
-    (report.datetime ? `Date/heure : ${escapeHtml(report.datetime)}<br>` : "") +
-    (report.address ? `${escapeHtml(report.address)}<br>` : "") +
-    (report.city ? `${escapeHtml(report.city)}<br>` : "") +
-    (report.description
-      ? `<div class="popup-description">${escapeHtml(
-          report.description
-        )}</div>`
-      : "");
+function loadReports() {
+  if (!API_BASE) return;
 
-  marker.bindPopup(popup);
-  marker.options.reportType = report.type;
-  reportsLayer.addLayer(marker);
+  const period = periodSelect ? periodSelect.value : "7";
 
-  applyTypeFilters();
+  fetch(`${API_BASE}/api/reports?period=${encodeURIComponent(period)}`)
+    .then(async (res) => {
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    })
+    .then((data) => {
+      displayReportsOnMap(data || []);
+    })
+    .catch((err) => {
+      console.error("Erreur lors du chargement des rapports :", err);
+      // pas de popup, juste dans la console
+    });
+}
+
+function displayReportsOnMap(reports) {
+  if (!reportsLayer) return;
+
+  reportsLayer.clearLayers();
+  reportMarkers = [];
+
+  const selectedTypes = new Set(getSelectedTypes());
+
+  reports.forEach((r) => {
+    if (!("latitude" in r) || !("longitude" in r)) return;
+    if (selectedTypes.size && !selectedTypes.has(r.type)) return;
+
+    const icon = buildIconForType(r.type);
+
+    const marker = L.marker([r.latitude, r.longitude], { icon }).addTo(reportsLayer);
+
+    const dateText = r.datetime || r.created_at || "";
+    const addressParts = [r.address, r.postal_code, r.city].filter(Boolean).join(" ");
+
+    marker.bindPopup(
+      `
+      <strong>${escapeHtml(labelForType(r.type))}</strong><br/>
+      <em>${escapeHtml(dateText)}</em><br/>
+      ${escapeHtml(addressParts)}<br/><br/>
+      ${escapeHtml(r.description || "")}
+      `
+    );
+
+    reportMarkers.push({ marker, type: r.type });
+  });
+}
+
+function buildIconForType(type) {
+  const iconMap = {
+    vol: "vol",
+    cambriolage: "cambriolage",
+    agression: "agression",
+    agression_sexuelle: "Agression_sexuelle",
+    viol: "viol",
+    meurtre: "meurtre",
+    carjacking: "carjacking",
+    trafic_stupefiants: "trafic_stupefiants",
+    degradations: "degradations",
+    autre: "autre",
+  };
+
+  const key = iconMap[type] || "autre";
+  return L.icon({
+    iconUrl: `img/${key}.png`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+  });
 }
 
 function labelForType(type) {
@@ -334,9 +285,49 @@ function labelForType(type) {
   }
 }
 
+// Pour filtrer quand on coche/décoche les types
+function updateMarkerVisibility() {
+  const selectedTypes = new Set(getSelectedTypes());
+
+  reportMarkers.forEach(({ marker, type }) => {
+    if (selectedTypes.size === 0 || selectedTypes.has(type)) {
+      if (!map.hasLayer(marker)) marker.addTo(reportsLayer);
+    } else {
+      if (map.hasLayer(marker)) reportsLayer.removeLayer(marker);
+    }
+  });
+}
+
+// ----------------------- RECHERCHE ADRESSE -----------------------
+
+function handleSearch(event) {
+  event.preventDefault();
+  const query = searchInput.value.trim();
+  if (!query) return;
+
+  fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+      query
+    )}&countrycodes=fr&limit=1`
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data || !data.length) return;
+      const r = data[0];
+      const lat = parseFloat(r.lat);
+      const lon = parseFloat(r.lon);
+      map.setView([lat, lon], 15);
+    })
+    .catch((err) => {
+      console.error("Erreur de recherche :", err);
+    });
+}
+
+// ----------------------- UTILS -----------------------
+
 function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
+  if (typeof str !== "string") return "";
+  return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -344,45 +335,35 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-// ================================
-// FILTRE PAR TYPE
-// ================================
+// ----------------------- INIT GLOBALE -----------------------
 
-const typeCheckboxes = document.querySelectorAll(".filter-type");
+document.addEventListener("DOMContentLoaded", () => {
+  initMap();
 
-typeCheckboxes.forEach((cb) => cb.addEventListener("change", applyTypeFilters));
+  if (reportForm) {
+    reportForm.addEventListener("submit", handleReportSubmit);
+  }
 
-function applyTypeFilters() {
-  const enabled = new Set();
-  typeCheckboxes.forEach((cb) => {
-    if (cb.checked) enabled.add(cb.dataset.type);
+  if (removePointBtn) {
+    removePointBtn.addEventListener("click", handleRemovePoint);
+  }
+
+  if (searchForm) {
+    searchForm.addEventListener("submit", handleSearch);
+  }
+
+  typeFilters.forEach((cb) => {
+    cb.addEventListener("change", () => {
+      updateMarkerVisibility();
+    });
   });
 
-  reportsLayer.eachLayer((layer) => {
-    const t = layer.options.reportType;
-    if (!t || enabled.has(t)) {
-      layer.addTo(map);
-    } else {
-      map.removeLayer(layer);
-    }
-  });
-}
+  if (periodSelect) {
+    periodSelect.addEventListener("change", () => {
+      loadReports();
+    });
+  }
 
-// ================================
-// BOUTONS DU HAUT
-// ================================
-
-document.getElementById("registerBtn").addEventListener("click", () => {
-  alert("La fonctionnalité d’inscription sera disponible prochainement.");
+  // Chargement initial des rapports
+  loadReports();
 });
-
-document.getElementById("alertsBtn").addEventListener("click", () => {
-  alert("Les alertes de proximité seront bientôt disponibles.");
-});
-
-// ================================
-// LANCEMENT
-// ================================
-
-loadReports();
-
