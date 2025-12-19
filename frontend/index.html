@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <title>MAPPINGCRIME France – Carte citoyenne</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Leaflet CSS (version 1.9.4) -->
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -13,7 +13,7 @@
     crossorigin=""
   />
 
-  <!-- Ton CSS -->
+  <!-- Styles de l'application -->
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="app">
@@ -27,29 +27,28 @@
       </div>
     </div>
 
-    <!-- Recherche d’adresse / ville -->
     <form id="searchForm" class="search-form">
       <input
         id="searchInput"
         type="text"
-        placeholder="Rechercher une ville, une adresse…"
+        placeholder="Rechercher une ville, une adresse..."
         autocomplete="off"
       />
-      <button type="submit">ALLER</button>
+      <button type="submit" class="btn btn-primary btn-small">ALLER</button>
     </form>
 
     <div class="topbar-actions">
-      <button type="button" id="registerBtn" class="btn-secondary">
+      <button type="button" id="registerBtn" class="btn btn-secondary btn-small">
         S'inscrire
       </button>
-      <button type="button" id="alertsBtn" class="btn-primary">
+      <button type="button" id="alertsBtn" class="btn btn-primary btn-small">
         Recevoir des alertes
       </button>
 
       <div class="period-selector">
         <span>Période :</span>
         <select id="periodSelect">
-          <option value="7" selected>7 derniers jours</option>
+          <option value="7">7 derniers jours</option>
           <option value="30">30 derniers jours</option>
           <option value="365">12 derniers mois</option>
           <option value="all">Tout</option>
@@ -59,8 +58,8 @@
   </header>
 
   <!-- CONTENU PRINCIPAL -->
-  <main class="main-layout">
-    <!-- COLONNE GAUCHE : FORMULAIRE -->
+  <main class="layout">
+    <!-- COLONNE GAUCHE : DÉCLARATION CITOYENNE -->
     <aside class="sidebar">
       <section class="declaration-panel">
         <div class="panel-header">
@@ -68,8 +67,8 @@
         </div>
 
         <p class="panel-warning">
-          Cette plateforme ne remplace pas un dépôt de plainte auprès de la police
-          ou de la gendarmerie. En cas d'urgence, appelez le
+          Cette plateforme ne remplace pas un dépôt de plainte auprès de la police ou de la
+          gendarmerie. En cas d'urgence, appelez le
           <strong>17 / 15 / 18 / 112</strong>.
         </p>
 
@@ -109,10 +108,19 @@
           />
 
           <label for="postalCode">Code postal</label>
-          <input id="postalCode" name="postalCode" type="text" />
+          <input
+            id="postalCode"
+            name="postalCode"
+            type="text"
+            inputmode="numeric"
+          />
 
           <label for="city">Ville</label>
-          <input id="city" name="city" type="text" />
+          <input
+            id="city"
+            name="city"
+            type="text"
+          />
 
           <!-- Description -->
           <label for="description">
@@ -122,14 +130,14 @@
             id="description"
             name="description"
             rows="4"
-            placeholder="Décrivez les faits…"
+            placeholder="Envoi de votre déclaration..."
           ></textarea>
 
           <!-- Bouton suppression du point -->
           <button
             type="button"
             id="removePointBtn"
-            class="btn-secondary btn-sm"
+            class="btn btn-secondary btn-small"
             disabled
           >
             Supprimer le point
@@ -141,111 +149,99 @@
           </label>
           <input id="fileInput" name="files" type="file" multiple />
 
-          <!-- Message d’erreur / info -->
+          <!-- Message d’erreur -->
           <p id="formError" class="form-error" aria-live="polite"></p>
 
           <!-- Bouton envoyer -->
-          <button type="submit" class="btn-submit">
+          <button type="submit" class="btn btn-submit">
             Envoyer ma déclaration
           </button>
         </form>
       </section>
     </aside>
 
-    <!-- COLONNE DROITE : CARTE + LÉGENDE -->
+    <!-- CARTE -->
     <section class="map-wrapper">
       <div id="map"></div>
 
-      <!-- Légende / filtres -->
+      <!-- LÉGENDE -->
       <div class="map-legend">
         <h2>Types de faits</h2>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="vol" checked />
-          <img src="img/vol.png" alt="" /> Vol
+          <img src="img/vol.png" alt="" />
+          <span>Vol</span>
         </label>
 
         <label>
-          <input
-            type="checkbox"
-            class="filter-type"
-            data-type="cambriolage"
-            checked
-          />
-          <img src="img/cambriolage.png" alt="" /> Cambriolage
+          <input type="checkbox" class="filter-type" data-type="cambriolage" checked />
+          <img src="img/cambriolage.png" alt="" />
+          <span>Cambriolage</span>
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="agression" checked />
-          <img src="img/agression.png" alt="" /> Agression
+          <img src="img/agression.png" alt="" />
+          <span>Agression</span>
         </label>
 
         <label>
-          <input
-            type="checkbox"
-            class="filter-type"
-            data-type="agression_sexuelle"
-            checked
-          />
-          <img src="img/Agression_sexuelle.png" alt="" /> Agression sexuelle
+          <input type="checkbox" class="filter-type" data-type="agression_sexuelle" checked />
+          <img src="img/Agression_sexuelle.png" alt="" />
+          <span>Agression sexuelle</span>
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="viol" checked />
-          <img src="img/viol.png" alt="" /> Viol
+          <img src="img/viol.png" alt="" />
+          <span>Viol</span>
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="meurtre" checked />
-          <img src="img/meurtre.png" alt="" /> Meurtre
+          <img src="img/meurtre.png" alt="" />
+          <span>Meurtre</span>
         </label>
 
         <label>
-          <input
-            type="checkbox"
-            class="filter-type"
-            data-type="carjacking"
-            checked
-          />
-          <img src="img/carjacking.png" alt="" /> Carjacking
+          <input type="checkbox" class="filter-type" data-type="carjacking" checked />
+          <img src="img/carjacking.png" alt="" />
+          <span>Carjacking</span>
         </label>
 
         <label>
-          <input
-            type="checkbox"
-            class="filter-type"
-            data-type="trafic_stupefiants"
-            checked
-          />
-          <img src="img/trafic_stupefiants.png" alt="" /> Trafic de stupéfiants
+          <input type="checkbox" class="filter-type" data-type="trafic_stupefiants" checked />
+          <img src="img/trafic_stupefiants.png" alt="" />
+          <span>Trafic de stupéfiants</span>
         </label>
 
         <label>
-          <input
-            type="checkbox"
-            class="filter-type"
-            data-type="degradations"
-            checked
-          />
-          <img src="img/degradations.png" alt="" /> Dégradations
+          <input type="checkbox" class="filter-type" data-type="degradations" checked />
+          <img src="img/degradations.png" alt="" />
+          <span>Dégradations</span>
         </label>
 
         <label>
           <input type="checkbox" class="filter-type" data-type="autre" checked />
-          <img src="img/autre.png" alt="" /> Autre
+          <img src="img/autre.png" alt="" />
+          <span>Autre</span>
         </label>
       </div>
     </section>
   </main>
 
+  <!-- Zone cachée pour debug (utilisée par report.js si besoin) -->
+  <pre id="debugOutput" class="debug-output" aria-hidden="true"></pre>
+
   <!-- Leaflet JS -->
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/JbEl7kHkB2Jx1Q1rPpWw="
     crossorigin=""
   ></script>
 
-  <!-- Ton script -->
+  <!-- Logique de la carte & du formulaire -->
   <script src="js/report.js"></script>
 </body>
 </html>
